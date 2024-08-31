@@ -1,5 +1,5 @@
 import { Header } from "@shared/ui/Header";
-import { Navbar } from "@shared/ui/Navbar";
+import { Navbar } from "@widgets/Navbar";
 import { Outlet } from "react-router-dom";
 import styles from "./AppLayout.module.css";
 
