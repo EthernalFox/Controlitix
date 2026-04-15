@@ -1,4 +1,4 @@
-module gitlab.controlitix.ru/controlitix/ms-editor
+module github.com/EthernalFox/Controlitix/ms-editor
 
 go 1.24.4
 

@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"gitlab.controlitix.ru/controlitix/ms-editor/internal/domain"
-	"gitlab.controlitix.ru/controlitix/ms-editor/internal/usecase"
+	"github.com/EthernalFox/Controlitix/ms-editor/internal/domain"
+	"github.com/EthernalFox/Controlitix/ms-editor/internal/usecase"
 )
 
 type Handler struct {

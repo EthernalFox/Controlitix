@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"gitlab.controlitix.ru/controlitix/ms-editor/internal/domain"
+	"github.com/EthernalFox/Controlitix/ms-editor/internal/domain"
 )
 
 type MonitoringObjectUseCase struct {

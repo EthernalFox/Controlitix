@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"gitlab.controlitix.ru/controlitix/ms-editor/internal/domain"
+	"github.com/EthernalFox/Controlitix/ms-editor/internal/domain"
 )
 
 func writeJSON(responseWriter http.ResponseWriter, statusCode int, payload any) {

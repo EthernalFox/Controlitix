@@ -11,11 +11,11 @@ import (
 	"syscall"
 	"time"
 
-	"gitlab.controlitix.ru/controlitix/ms-editor/internal/config"
-	"gitlab.controlitix.ru/controlitix/ms-editor/internal/infrastructure/database"
-	"gitlab.controlitix.ru/controlitix/ms-editor/internal/infrastructure/repository"
-	transporthttp "gitlab.controlitix.ru/controlitix/ms-editor/internal/transport/http"
-	"gitlab.controlitix.ru/controlitix/ms-editor/internal/usecase"
+	"github.com/EthernalFox/Controlitix/ms-editor/internal/config"
+	"github.com/EthernalFox/Controlitix/ms-editor/internal/infrastructure/database"
+	"github.com/EthernalFox/Controlitix/ms-editor/internal/infrastructure/repository"
+	transporthttp "github.com/EthernalFox/Controlitix/ms-editor/internal/transport/http"
+	"github.com/EthernalFox/Controlitix/ms-editor/internal/usecase"
 )
 
 const shutdownTimeout = 10 * time.Second
