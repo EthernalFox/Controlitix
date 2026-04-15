@@ -1,0 +1,19 @@
+# IDE/OS
+.idea/
+.vscode/
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs / temp
+*.log
+tmp/
+.tmp/
+
+# Node (if any tooling present later)
+node_modules/
+
+# Draw.io backups
+*.bkp
+*.backup
+

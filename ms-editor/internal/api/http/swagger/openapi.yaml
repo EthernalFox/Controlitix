@@ -1,0 +1,374 @@
+openapi: 3.0.3
+info:
+  title: ms-editor API
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+  /objects:
+    get:
+      summary: List monitoring objects
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MonitoringObject"
+    post:
+      summary: Create monitoring object
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMonitoringObjectRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonitoringObject"
+  /objects/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ObjectID"
+    get:
+      summary: Get monitoring object
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonitoringObject"
+    patch:
+      summary: Update monitoring object
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMonitoringObjectRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonitoringObject"
+    delete:
+      summary: Delete monitoring object
+      responses:
+        "204":
+          description: No Content
+  /objects/{id}/diagrams:
+    parameters:
+      - $ref: "#/components/parameters/ObjectID"
+    get:
+      summary: List diagrams for object
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Diagram"
+    post:
+      summary: Create diagram for object
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDiagramRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Diagram"
+  /diagrams/{id}:
+    parameters:
+      - $ref: "#/components/parameters/DiagramID"
+    get:
+      summary: Get diagram
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Diagram"
+    patch:
+      summary: Update diagram
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDiagramRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Diagram"
+    delete:
+      summary: Delete diagram
+      responses:
+        "204":
+          description: No Content
+  /diagrams/{id}/publish:
+    parameters:
+      - $ref: "#/components/parameters/DiagramID"
+    post:
+      summary: Publish diagram
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Diagram"
+  /diagrams/{id}/figures:
+    parameters:
+      - $ref: "#/components/parameters/DiagramID"
+    get:
+      summary: List figures for diagram
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Figure"
+    post:
+      summary: Create figures
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFiguresRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Figure"
+  /figures/{id}:
+    parameters:
+      - $ref: "#/components/parameters/FigureID"
+    patch:
+      summary: Update figure
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFigureRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Figure"
+    delete:
+      summary: Delete figure
+      responses:
+        "204":
+          description: No Content
+components:
+  parameters:
+    ObjectID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    DiagramID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    FigureID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    MonitoringObject:
+      type: object
+      required:
+        - id
+        - name
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Diagram:
+      type: object
+      required:
+        - id
+        - object_id
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        object_id:
+          type: string
+        name:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Figure:
+      type: object
+      required:
+        - id
+        - scheme_id
+        - type
+        - params
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        scheme_id:
+          type: string
+        tag_id:
+          type: string
+          nullable: true
+        type:
+          type: string
+        params:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateMonitoringObjectRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+    UpdateMonitoringObjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+    CreateDiagramRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+    UpdateDiagramRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+    CreateFiguresRequest:
+      type: object
+      required:
+        - figures
+      properties:
+        figures:
+          type: array
+          items:
+            $ref: "#/components/schemas/FigureRequest"
+    FigureRequest:
+      type: object
+      required:
+        - type
+        - params
+      properties:
+        type:
+          type: string
+        tag_id:
+          type: string
+          nullable: true
+        params:
+          type: object
+          additionalProperties: true
+    UpdateFigureRequest:
+      type: object
+      properties:
+        type:
+          type: string
+        tag_id:
+          type: string
+          nullable: true
+        params:
+          type: object
+          additionalProperties: true

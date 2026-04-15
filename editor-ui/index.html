@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vite + React + TS</title>
+    <script>
+      (function () {
+        try {
+          var themeKey = "controlitix-theme";
+          var theme = window.localStorage.getItem(themeKey);
+          var colorScheme;
+
+          if (theme === "light") colorScheme = "light";
+          else if (theme === "dark" || theme === "ultraDark") colorScheme = "dark";
+          else colorScheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+
+          document.documentElement.setAttribute("data-mantine-color-scheme", colorScheme);
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
