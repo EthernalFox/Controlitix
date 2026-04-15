@@ -1,0 +1,62 @@
+# OS / Explorer
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE / Editors
+.idea/
+.vscode/
+*.suo
+*.user
+*.userossc
+*.sln.docstates
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment / local config
+.env
+.env.*
+!.env.example
+*.local
+
+# Node / frontend
+node_modules/
+dist/
+dist-ssr/
+build/
+coverage/
+.next/
+.nuxt/
+.svelte-kit/
+.turbo/
+.cache/
+*.tsbuildinfo
+
+# Go / backend build artifacts
+bin/
+obj/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.out
+
+# Temp
+tmp/
+.tmp/
+temp/
+
+# Draw.io backups
+*.bkp
+*.backup
