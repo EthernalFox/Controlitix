@@ -4,7 +4,7 @@
 
 - В корне проекта два отдельных репозитория: `editor-ui/` (frontend) и `ms-editor/` (backend).
 - Документация по API и данным живет в `docs/`, и используется как источник контрактов.
-- Важно: в архитектуре запрещены кросс‑схемные FK.
+- Примечание: в ранней версии REPORT фиксировался запрет кросс-схемных FK; это решение пересмотрено — кросс-схемные FK **разрешены** для MVP (см. [`docs/08_ADR/ADR-0003-postgres-schemas.md`](docs/08_ADR/ADR-0003-postgres-schemas.md)).
 
 ## editor-ui
 
@@ -40,7 +40,7 @@
   - `MS_EDITOR_DATABASE_URL`
 - Миграции через Goose в `ms-editor/migrations/000001_init.sql`:
   - Таблицы `public.objects`, `public.mimic`, `public.figures`, `public.figure_params`.
-  - Внешние ключи только внутри схемы `public`, `tag_id` без FK.
+  - Текущее состояние миграции ограничено схемой `public`; при расширении на `devices`/`tags`/`history`/`alarms`/`auth` кросс-схемные FK допустимы (см. [`docs/08_ADR/ADR-0003-postgres-schemas.md`](docs/08_ADR/ADR-0003-postgres-schemas.md)). Поле `tag_id` в `public.figures` остаётся без FK (логическая связь).
 - Docker окружение:
   - `ms-editor/Dockerfile` — сборка сервиса.
   - `ms-editor/docker-compose.yml` — Postgres + сервис.

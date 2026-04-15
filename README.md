@@ -15,7 +15,11 @@ This repository is a monorepo and contains:
 
 ## Documentation
 
-The main product description is in [docs/01_Цель-и-область/README.md](docs/01_Цель-и-область/README.md).
+- Product description: [docs/01_Цель-и-область/README.md](docs/01_Цель-и-область/README.md)
+- Non-functional requirements: [docs/01_Цель-и-область/НФТ.md](docs/01_Цель-и-область/НФТ.md)
+- Architecture overview: [docs/02_Архитектура/README.md](docs/02_Архитектура/README.md)
+- Development roadmap: [docs/09_План-работ/README.md](docs/09_План-работ/README.md)
+- Architecture Decision Records: [docs/08_ADR/README.md](docs/08_ADR/README.md)
 
 ## License
 

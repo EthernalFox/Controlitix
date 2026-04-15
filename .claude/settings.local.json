@@ -1,0 +1,8 @@
+{
+  "enabledPlugins": {
+    "product-management@knowledge-work-plugins": true,
+    "engineering@knowledge-work-plugins": true,
+    "design@knowledge-work-plugins": true,
+    "figma@knowledge-work-plugins": true
+  }
+}
