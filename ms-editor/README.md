@@ -1,6 +1,15 @@
 # ms-editor
 
-Сервис управления объектами мониторинга, мнемосхемами и фигурами для editor-ui.
+Сервис управления объектами мониторинга, мнемосхемами и фигурами для `editor-ui`.
+
+Текущее фактическое покрытие skeleton-проекта:
+
+- объекты мониторинга;
+- мнемосхемы;
+- фигуры на схеме;
+- Swagger и HTTP-каркас.
+
+Устройства, теги и справочники описаны в общей архитектуре, но в этом сервисе ещё не реализованы.
 
 ## Стек
 
@@ -41,14 +50,28 @@ docker compose up --build
 
 Базовые точки: `docs/04_API/ms-editor.md`.
 
-Дополнительно для editor-ui:
+Дополнительно для `editor-ui`:
 - `GET /objects`
 - `GET /objects/{id}/diagrams`
 - `GET /diagrams/{id}/figures`
+
+Поддерживаемые типы фигур синхронизированы с `editor-ui`:
+
+- `rect`
+- `circle`
+- `ellipse`
+- `wedge`
+- `line`
+- `image`
+- `text`
+- `ring`
+- `arc`
+- `tag`
+- `path`
 
 ## Архитектура
 
 - `internal/domain` - сущности и ошибки
 - `internal/usecase` - сценарии
-- `internal/transport/http` - HTTP слой
+- `internal/api/http` - HTTP слой
 - `internal/infrastructure` - БД и репозитории

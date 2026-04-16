@@ -51,7 +51,7 @@ type updateFigureRequest struct {
 
 type figureResponse struct {
 	ID         string          `json:"id"`
-	DiagramID  string          `json:"scheme_id"`
+	DiagramID  string          `json:"diagram_id"`
 	TagID      *string         `json:"tag_id"`
 	FigureType string          `json:"type"`
 	Parameters json.RawMessage `json:"params"`

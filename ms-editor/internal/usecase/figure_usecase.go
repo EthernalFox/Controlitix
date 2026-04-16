@@ -40,7 +40,7 @@ func (useCase *FigureUseCase) UpdateFigure(
 	ctx context.Context,
 	figureID string,
 	tagID *string,
-	figureType *string,
+	figureType *domain.FigureType,
 	parameters *json.RawMessage,
 ) (domain.Figure, error) {
 	if strings.TrimSpace(figureID) == "" {

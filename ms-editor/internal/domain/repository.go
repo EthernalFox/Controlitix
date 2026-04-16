@@ -17,7 +17,7 @@ type DiagramUpdate struct {
 
 type FigureUpdate struct {
 	TagID      *string
-	FigureType *string
+	FigureType *FigureType
 	Parameters *json.RawMessage
 }
 

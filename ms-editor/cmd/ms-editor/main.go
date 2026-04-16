@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/EthernalFox/Controlitix/ms-editor/internal/config"
+	transporthttp "github.com/EthernalFox/Controlitix/ms-editor/internal/api/http"
 	"github.com/EthernalFox/Controlitix/ms-editor/internal/infrastructure/database"
 	"github.com/EthernalFox/Controlitix/ms-editor/internal/infrastructure/repository"
-	transporthttp "github.com/EthernalFox/Controlitix/ms-editor/internal/transport/http"
 	"github.com/EthernalFox/Controlitix/ms-editor/internal/usecase"
 )
 

@@ -1,0 +1,68 @@
+# Controlitix — Codex agent guide
+
+## Role
+
+You are the **executor** for Controlitix.
+- Implement exactly what the task spec says.
+- Do not make architectural decisions — ask (or stop) if the spec is ambiguous.
+- Do not touch files outside the scope of the task.
+- Do not add features, refactoring, or comments beyond what was asked.
+
+## Specs folder
+
+Tasks are tracked in `specs/`. Filename: `NNNN.STATUS.short-description.md`.
+
+**Your flow:**
+1. Find the spec assigned to you (status `ready` or `wip`).
+2. Read it fully before writing any code.
+3. Rename the file to `NNNN.wip.*` when you start.
+4. When finished, rename to `NNNN.review.*`.
+5. Do not modify the spec content — only rename it.
+
+If the spec is ambiguous, stop and report what is unclear instead of guessing.
+
+## Repository structure
+
+| Directory      | Stack                          | Sub-guide                    |
+|----------------|--------------------------------|------------------------------|
+| `ms-editor`    | Go 1.22, Clean Architecture    | `ms-editor/agents.md`        |
+| `editor-ui`    | React 19, TS 5, FSD            | `editor-ui/agents.md`        |
+| `ms-poll`      | Go (stub, planned)             | —                            |
+| `ms-viewer`    | Go (stub, planned)             | —                            |
+| `viewer-ui`    | React (stub, planned)          | —                            |
+| `docs/`        | Markdown, read-only reference  | —                            |
+
+Always read the sub-guide for the target service before starting.
+
+## Go services — conventions
+
+- Error handling: `return nil, fmt.Errorf("context: %w", err)`.
+- No naked `panic`, no `log.Fatal` outside `main`.
+- Interfaces defined in `domain/`, implementations in `infrastructure/`.
+- HTTP models (request/response structs) live in `internal/api/http/models.go`.
+- Repository methods added to the interface in `domain/repository.go` first, then implemented.
+- Structured logging with `slog`; include `"method"` and key entity IDs in log fields.
+
+## Frontend (editor-ui) — conventions
+
+- FSD layer order: `app → pages → widgets → features → entities → shared`.
+- Import only through `index.ts` public APIs (e.g. `@shared/ui`, not `@shared/ui/Button/Button.tsx`).
+- Zustand stores and API clients go in `entities/<name>/`.
+- Each component folder: `ComponentName.tsx`, `useModels.tsx` (if logic), `types.ts`, `styles.scss`.
+- Prettier: singleQuote false, trailingComma none, semi true, printWidth 80.
+- ESLint: no unused imports, `import/order` enforced with blank lines between groups.
+
+## Commit rules
+
+- One logical change per commit.
+- Message format: `<type>(<scope>): <what>` — e.g. `feat(ms-editor): add GetFiguresByDiagramID`.
+- Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`.
+- Stage only files related to the task (`git add -p` if unsure).
+
+## What NOT to do
+
+- Do not change files in `docs/` unless the task explicitly says so.
+- Do not add FK constraints across service schemas.
+- Do not introduce new dependencies without mentioning it in the task output.
+- Do not mix multiple logical changes in one commit.
+- Do not modify migration files that have already been applied — add a new migration instead.

@@ -1,10 +1,14 @@
+import { ArcConfig } from 'konva/lib/shapes/Arc';
 import { EllipseConfig } from 'konva/lib/shapes/Ellipse';
+import { ImageConfig } from 'konva/lib/shapes/Image';
 import { RingConfig } from 'konva/lib/shapes/Ring';
 import { WedgeConfig } from 'konva/lib/shapes/Wedge';
 import { FC } from 'react';
 import {
+  Arc,
   Circle,
   Ellipse,
+  Image as KonvaImage,
   Line,
   Path,
   Rect,
@@ -29,11 +33,13 @@ const Shape: FC<ShapeProps> = ({ type, ...config }) => {
     case 'line':
       return <Line {...config} />;
     case 'image':
+      return <KonvaImage {...(config as ImageConfig)} />;
     case 'text':
       return <Text {...config} />;
     case 'ring':
       return <Ring {...(config as RingConfig)} />;
-    // case 'arc':
+    case 'arc':
+      return <Arc {...(config as ArcConfig)} />;
     case 'tag':
       return <Tag {...config} />;
     case 'path':

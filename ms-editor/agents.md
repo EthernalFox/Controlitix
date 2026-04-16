@@ -17,7 +17,7 @@
 - `cmd/ms-editor` - entrypoint and composition root.
 - `internal/domain` - entities and domain errors.
 - `internal/usecase` - application use cases.
-- `internal/transport/http` - HTTP handlers and routing.
+- `internal/api/http` - HTTP handlers and routing.
 - `internal/infrastructure` - database connections and repositories.
 
 ## Naming rules

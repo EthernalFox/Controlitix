@@ -416,14 +416,15 @@ func (handler *Handler) createFigures(
 
 	figures := make([]domain.Figure, 0, len(requestPayload.Figures))
 	for _, figure := range requestPayload.Figures {
-		if strings.TrimSpace(figure.FigureType) == "" {
-			writeError(responseWriter, http.StatusBadRequest, "figure type is required")
+		figureType, isSupportedFigureType := domain.ParseFigureType(figure.FigureType)
+		if !isSupportedFigureType {
+			writeError(responseWriter, http.StatusBadRequest, "unsupported figure type")
 			return
 		}
 
 		figures = append(figures, domain.Figure{
 			DiagramID:  diagramID,
-			FigureType: figure.FigureType,
+			FigureType: figureType,
 			Parameters: figure.Parameters,
 			TagID:      figure.TagID,
 		})
@@ -480,11 +481,24 @@ func (handler *Handler) updateFigure(
 		return
 	}
 
+	var figureType *domain.FigureType
+	if requestPayload.FigureType != nil {
+		parsedFigureType, isSupportedFigureType := domain.ParseFigureType(
+			*requestPayload.FigureType,
+		)
+		if !isSupportedFigureType {
+			writeError(responseWriter, http.StatusBadRequest, "unsupported figure type")
+			return
+		}
+
+		figureType = &parsedFigureType
+	}
+
 	figure, useCaseError := handler.figureUseCase.UpdateFigure(
 		request.Context(),
 		figureID,
 		requestPayload.TagID,
-		requestPayload.FigureType,
+		figureType,
 		requestPayload.Parameters,
 	)
 	if useCaseError != nil {
@@ -540,7 +554,7 @@ func mapFigureResponse(figure domain.Figure) figureResponse {
 		ID:         figure.ID,
 		DiagramID:  figure.DiagramID,
 		TagID:      figure.TagID,
-		FigureType: figure.FigureType,
+		FigureType: string(figure.FigureType),
 		Parameters: figure.Parameters,
 		CreatedAt:  figure.CreatedAt,
 		UpdatedAt:  figure.UpdatedAt,

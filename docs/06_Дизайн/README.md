@@ -1,8 +1,8 @@
 # 6. Дизайн
 
-**Статус раздела:** заглушка. Артефакты будут созданы в [Phase 0 плана работ](../09_План-работ/README.md#phase-0--design--ux-foundation).
+**Статус раздела:** в работе. Первичные артефакты начинают появляться, но Phase 0 ещё не завершена.
 
-Сейчас у Controlitix **нет готового дизайна и UX-артефактов**. Это главный блокер для разработки `editor-ui` (идёт на догадках) и для старта `viewer-ui`. Phase 0 в плане работ посвящена закрытию этого пробела.
+Сейчас у Controlitix **нет полного набора дизайна и UX-артефактов**. Блокер снижен частично: появились первые документы по `editor-ui`, но ещё отсутствуют полноценные user flows, wireframes, HMI visual language, component catalog и hi-fi mockups. Phase 0 в плане работ по-прежнему обязательна.
 
 ## Что должно здесь появиться
 
@@ -15,9 +15,16 @@
 | User Flows | Flow-диаграммы по всем сценариям из `05_Сценарии-использования` | `User-Flows.md` + Figma |
 | Wireframes (low-fi) | Каркасы экранов editor-ui и viewer-ui | `Wireframes.md` + Figma |
 | Design System | Палитра (светлая / тёмная), типографика, иконография, spacing, состояния компонентов | `Design-System.md` + Figma |
+| Figure Types | Поддерживаемые типы фигур editor-ui и базовый контракт для `figure_params` | `Figure-Types.md` |
 | HMI Visual Language | **Ключевой артефакт SCADA:** цветовая семантика тревог, паттерны динамики (мигание/пульсация), accessibility, стандарты отображения оборудования | `HMI-Visual-Language.md` + Figma |
 | Component Catalog | Список кастомных компонентов поверх Mantine с назначением и props | `Components.md` + Figma |
 | Hi-fi Mockups | Детализированные макеты 6–8 ключевых экранов | `Mockups.md` + Figma |
+
+## Что уже зафиксировано
+
+- [`Information-Architecture.md`](Information-Architecture.md) — стартовый sitemap и nav model для `editor-ui`.
+- [`Design-System.md`](Design-System.md) — первичный черновик визуальной системы и HMI-правил.
+- [`Figure-Types.md`](Figure-Types.md) — зафиксированный набор типов фигур из `editor-ui`.
 
 ## Ограничения и решения по стеку
 

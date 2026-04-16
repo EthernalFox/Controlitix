@@ -8,6 +8,7 @@
 - tag_id: uuid, NULL, FK → `tags.tags(id)` — если фигура привязана к тегу
 - created_at: timestamptz, NOT NULL
 - updated_at: timestamptz, NOT NULL
+- type: хранится логически в связке с `figure_params.params.type` и на уровне API, фактический whitelist типов описан в `../../06_Дизайн/Figure-Types.md`
 
 Связи
 - N:1 с `public.mimic`.
@@ -19,4 +20,4 @@
 
 Примечание
 - В исходной диаграмме `scheme_id` отмечен как int и `tagID` как UUID. Исправлено на `scheme_id uuid`, `tag_id uuid` (snake_case).
-
+- На уровне БД используется историческое имя `scheme_id`, но в публичном HTTP API рекомендуется использовать `diagram_id`, чтобы совпадать с остальной терминологией сервиса.

@@ -278,7 +278,7 @@ components:
       type: object
       required:
         - id
-        - scheme_id
+        - diagram_id
         - type
         - params
         - created_at
@@ -286,13 +286,25 @@ components:
       properties:
         id:
           type: string
-        scheme_id:
+        diagram_id:
           type: string
         tag_id:
           type: string
           nullable: true
         type:
           type: string
+          enum:
+            - rect
+            - circle
+            - ellipse
+            - wedge
+            - line
+            - image
+            - text
+            - ring
+            - arc
+            - tag
+            - path
         params:
           type: object
           additionalProperties: true
@@ -355,6 +367,18 @@ components:
       properties:
         type:
           type: string
+          enum:
+            - rect
+            - circle
+            - ellipse
+            - wedge
+            - line
+            - image
+            - text
+            - ring
+            - arc
+            - tag
+            - path
         tag_id:
           type: string
           nullable: true
@@ -366,6 +390,18 @@ components:
       properties:
         type:
           type: string
+          enum:
+            - rect
+            - circle
+            - ellipse
+            - wedge
+            - line
+            - image
+            - text
+            - ring
+            - arc
+            - tag
+            - path
         tag_id:
           type: string
           nullable: true
