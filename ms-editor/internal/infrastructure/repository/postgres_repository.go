@@ -496,6 +496,473 @@ func (repository *PostgresRepository) GetDeviceType(
 	return deviceType, nil
 }
 
+func (repository *PostgresRepository) CreateTag(
+	ctx context.Context,
+	tag domain.Tag,
+) (domain.Tag, error) {
+	query := `
+WITH inserted AS (
+    INSERT INTO tags.tags (device_id, name, description)
+    SELECT d.id, $2, $3
+    FROM devices.devices d
+    WHERE d.id = $1
+      AND d.deleted_at IS NULL
+    RETURNING id, device_id, name, description, deleted_at, created_at, updated_at
+)
+SELECT id, device_id, name, description, deleted_at, created_at, updated_at
+FROM inserted
+`
+
+	createdTag, queryError := scanTag(
+		repository.executor(ctx).QueryRowContext(
+			ctx,
+			query,
+			tag.DeviceID,
+			tag.Name,
+			tag.Description,
+		),
+	)
+	if queryError != nil {
+		return domain.Tag{}, mapDatabaseError("create tag", queryError)
+	}
+
+	return createdTag, nil
+}
+
+func (repository *PostgresRepository) GetTag(
+	ctx context.Context,
+	tagID string,
+) (domain.TagFull, error) {
+	query := `
+SELECT
+    t.id,
+    t.device_id,
+    t.name,
+    t.description,
+    t.deleted_at,
+    t.created_at,
+    t.updated_at,
+    tp.id,
+    tp.tag_id,
+    tp.data_type_id,
+    tp.unit_id,
+    tp.address,
+    tp.created_at,
+    tp.updated_at,
+    ts.param_id,
+    ts.lolo,
+    ts.lo,
+    ts.hi,
+    ts.hihi,
+    ts.created_at,
+    ts.updated_at,
+    sc.param_id,
+    sc.raw_min,
+    sc.raw_max,
+    sc.eng_min,
+    sc.eng_max,
+    sc.factor,
+    sc."offset",
+    sc.created_at,
+    sc.updated_at
+FROM tags.tags t
+LEFT JOIN tags.tag_params tp ON tp.tag_id = t.id
+LEFT JOIN tags.tag_setpoints ts ON ts.param_id = tp.id
+LEFT JOIN tags.tag_scaling sc ON sc.param_id = tp.id
+WHERE t.id = $1
+  AND t.deleted_at IS NULL
+`
+
+	tagFull, queryError := scanTagFull(
+		repository.executor(ctx).QueryRowContext(ctx, query, tagID),
+	)
+	if queryError != nil {
+		return domain.TagFull{}, mapDatabaseError("get tag", queryError)
+	}
+
+	return tagFull, nil
+}
+
+func (repository *PostgresRepository) UpdateTag(
+	ctx context.Context,
+	tagID string,
+	update domain.TagUpdate,
+) (domain.Tag, error) {
+	query := `
+UPDATE tags.tags
+SET
+    name = COALESCE($2, name),
+    description = COALESCE($3, description),
+    updated_at = now()
+WHERE id = $1
+  AND deleted_at IS NULL
+RETURNING id, device_id, name, description, deleted_at, created_at, updated_at
+`
+
+	tag, queryError := scanTag(
+		repository.executor(ctx).QueryRowContext(
+			ctx,
+			query,
+			tagID,
+			update.Name,
+			update.Description,
+		),
+	)
+	if queryError != nil {
+		return domain.Tag{}, mapDatabaseError("update tag", queryError)
+	}
+
+	return tag, nil
+}
+
+func (repository *PostgresRepository) DeleteTag(
+	ctx context.Context,
+	tagID string,
+) error {
+	query := `
+UPDATE tags.tags
+SET
+    deleted_at = now(),
+    updated_at = now()
+WHERE id = $1
+  AND deleted_at IS NULL
+`
+
+	result, executeError := repository.executor(ctx).ExecContext(ctx, query, tagID)
+	if executeError != nil {
+		return mapDatabaseError("delete tag", executeError)
+	}
+
+	return ensureRowsAffected("delete tag", result)
+}
+
+func (repository *PostgresRepository) ListTagsByDevice(
+	ctx context.Context,
+	deviceID string,
+) ([]domain.Tag, error) {
+	query := `
+SELECT id, device_id, name, description, deleted_at, created_at, updated_at
+FROM tags.tags
+WHERE device_id = $1
+  AND deleted_at IS NULL
+ORDER BY created_at, id
+`
+
+	rows, queryError := repository.executor(ctx).QueryContext(ctx, query, deviceID)
+	if queryError != nil {
+		return nil, mapDatabaseError("list tags by device", queryError)
+	}
+	defer rows.Close()
+
+	tags := make([]domain.Tag, 0)
+	for rows.Next() {
+		tag, scanError := scanTag(rows)
+		if scanError != nil {
+			return nil, mapDatabaseError("list tags by device", scanError)
+		}
+
+		tags = append(tags, tag)
+	}
+
+	if rowsError := rows.Err(); rowsError != nil {
+		return nil, fmt.Errorf("list tags by device: %w", rowsError)
+	}
+
+	return tags, nil
+}
+
+func (repository *PostgresRepository) UpsertTagParams(
+	ctx context.Context,
+	tagID string,
+	params domain.TagParams,
+) (domain.TagParams, error) {
+	query := `
+INSERT INTO tags.tag_params (tag_id, data_type_id, unit_id, address)
+SELECT t.id, $2, $3, $4
+FROM tags.tags t
+WHERE t.id = $1
+  AND t.deleted_at IS NULL
+ON CONFLICT (tag_id) DO UPDATE
+SET
+    data_type_id = EXCLUDED.data_type_id,
+    unit_id = EXCLUDED.unit_id,
+    address = EXCLUDED.address,
+    updated_at = now()
+RETURNING id, tag_id, data_type_id, unit_id, address, created_at, updated_at
+`
+
+	tagParams, queryError := scanTagParams(
+		repository.executor(ctx).QueryRowContext(
+			ctx,
+			query,
+			tagID,
+			params.DataTypeID,
+			params.UnitID,
+			[]byte(params.Address),
+		),
+	)
+	if queryError != nil {
+		return domain.TagParams{}, mapDatabaseError("upsert tag params", queryError)
+	}
+
+	return tagParams, nil
+}
+
+func (repository *PostgresRepository) GetTagParams(
+	ctx context.Context,
+	tagID string,
+) (domain.TagParams, error) {
+	query := `
+SELECT tp.id, tp.tag_id, tp.data_type_id, tp.unit_id, tp.address, tp.created_at, tp.updated_at
+FROM tags.tag_params tp
+JOIN tags.tags t ON t.id = tp.tag_id
+WHERE tp.tag_id = $1
+  AND t.deleted_at IS NULL
+`
+
+	tagParams, queryError := scanTagParams(
+		repository.executor(ctx).QueryRowContext(ctx, query, tagID),
+	)
+	if queryError != nil {
+		return domain.TagParams{}, mapDatabaseError("get tag params", queryError)
+	}
+
+	return tagParams, nil
+}
+
+func (repository *PostgresRepository) UpsertTagSetpoints(
+	ctx context.Context,
+	paramID string,
+	setpoints domain.TagSetpoints,
+) (domain.TagSetpoints, error) {
+	query := `
+INSERT INTO tags.tag_setpoints (param_id, lolo, lo, hi, hihi)
+SELECT tp.id, $2, $3, $4, $5
+FROM tags.tag_params tp
+JOIN tags.tags t ON t.id = tp.tag_id
+WHERE tp.id = $1
+  AND t.deleted_at IS NULL
+ON CONFLICT (param_id) DO UPDATE
+SET
+    lolo = EXCLUDED.lolo,
+    lo = EXCLUDED.lo,
+    hi = EXCLUDED.hi,
+    hihi = EXCLUDED.hihi,
+    updated_at = now()
+RETURNING param_id, lolo, lo, hi, hihi, created_at, updated_at
+`
+
+	tagSetpoints, queryError := scanTagSetpoints(
+		repository.executor(ctx).QueryRowContext(
+			ctx,
+			query,
+			paramID,
+			setpoints.LoLo,
+			setpoints.Lo,
+			setpoints.Hi,
+			setpoints.HiHi,
+		),
+	)
+	if queryError != nil {
+		return domain.TagSetpoints{}, mapDatabaseError("upsert tag setpoints", queryError)
+	}
+
+	return tagSetpoints, nil
+}
+
+func (repository *PostgresRepository) GetTagSetpoints(
+	ctx context.Context,
+	paramID string,
+) (domain.TagSetpoints, error) {
+	query := `
+SELECT param_id, lolo, lo, hi, hihi, created_at, updated_at
+FROM tags.tag_setpoints
+WHERE param_id = $1
+`
+
+	tagSetpoints, queryError := scanTagSetpoints(
+		repository.executor(ctx).QueryRowContext(ctx, query, paramID),
+	)
+	if queryError != nil {
+		return domain.TagSetpoints{}, mapDatabaseError("get tag setpoints", queryError)
+	}
+
+	return tagSetpoints, nil
+}
+
+func (repository *PostgresRepository) DeleteTagSetpoints(
+	ctx context.Context,
+	paramID string,
+) error {
+	result, executeError := repository.executor(ctx).ExecContext(
+		ctx,
+		`DELETE FROM tags.tag_setpoints WHERE param_id = $1`,
+		paramID,
+	)
+	if executeError != nil {
+		return mapDatabaseError("delete tag setpoints", executeError)
+	}
+
+	return ensureRowsAffected("delete tag setpoints", result)
+}
+
+func (repository *PostgresRepository) UpsertTagScaling(
+	ctx context.Context,
+	paramID string,
+	scaling domain.TagScaling,
+) (domain.TagScaling, error) {
+	query := `
+INSERT INTO tags.tag_scaling (param_id, raw_min, raw_max, eng_min, eng_max, factor, "offset")
+SELECT tp.id, $2, $3, $4, $5, $6, $7
+FROM tags.tag_params tp
+JOIN tags.tags t ON t.id = tp.tag_id
+WHERE tp.id = $1
+  AND t.deleted_at IS NULL
+ON CONFLICT (param_id) DO UPDATE
+SET
+    raw_min = EXCLUDED.raw_min,
+    raw_max = EXCLUDED.raw_max,
+    eng_min = EXCLUDED.eng_min,
+    eng_max = EXCLUDED.eng_max,
+    factor = EXCLUDED.factor,
+    "offset" = EXCLUDED."offset",
+    updated_at = now()
+RETURNING param_id, raw_min, raw_max, eng_min, eng_max, factor, "offset", created_at, updated_at
+`
+
+	tagScaling, queryError := scanTagScaling(
+		repository.executor(ctx).QueryRowContext(
+			ctx,
+			query,
+			paramID,
+			scaling.RawMin,
+			scaling.RawMax,
+			scaling.EngMin,
+			scaling.EngMax,
+			scaling.Factor,
+			scaling.Offset,
+		),
+	)
+	if queryError != nil {
+		return domain.TagScaling{}, mapDatabaseError("upsert tag scaling", queryError)
+	}
+
+	return tagScaling, nil
+}
+
+func (repository *PostgresRepository) GetTagScaling(
+	ctx context.Context,
+	paramID string,
+) (domain.TagScaling, error) {
+	query := `
+SELECT param_id, raw_min, raw_max, eng_min, eng_max, factor, "offset", created_at, updated_at
+FROM tags.tag_scaling
+WHERE param_id = $1
+`
+
+	tagScaling, queryError := scanTagScaling(
+		repository.executor(ctx).QueryRowContext(ctx, query, paramID),
+	)
+	if queryError != nil {
+		return domain.TagScaling{}, mapDatabaseError("get tag scaling", queryError)
+	}
+
+	return tagScaling, nil
+}
+
+func (repository *PostgresRepository) DeleteTagScaling(
+	ctx context.Context,
+	paramID string,
+) error {
+	result, executeError := repository.executor(ctx).ExecContext(
+		ctx,
+		`DELETE FROM tags.tag_scaling WHERE param_id = $1`,
+		paramID,
+	)
+	if executeError != nil {
+		return mapDatabaseError("delete tag scaling", executeError)
+	}
+
+	return ensureRowsAffected("delete tag scaling", result)
+}
+
+func (repository *PostgresRepository) ListDataTypes(
+	ctx context.Context,
+) ([]domain.DataType, error) {
+	rows, queryError := repository.executor(ctx).QueryContext(
+		ctx,
+		`SELECT id, name FROM tags.data_types ORDER BY id`,
+	)
+	if queryError != nil {
+		return nil, mapDatabaseError("list data types", queryError)
+	}
+	defer rows.Close()
+
+	dataTypes := make([]domain.DataType, 0)
+	for rows.Next() {
+		var dataType domain.DataType
+		if scanError := rows.Scan(&dataType.ID, &dataType.Name); scanError != nil {
+			return nil, fmt.Errorf("scan data type: %w", scanError)
+		}
+
+		dataTypes = append(dataTypes, dataType)
+	}
+
+	if rowsError := rows.Err(); rowsError != nil {
+		return nil, fmt.Errorf("list data types: %w", rowsError)
+	}
+
+	return dataTypes, nil
+}
+
+func (repository *PostgresRepository) ListUnits(
+	ctx context.Context,
+) ([]domain.Unit, error) {
+	return repository.listUnitsByQuery(
+		ctx,
+		`SELECT id, name, symbol, category FROM tags.units ORDER BY id`,
+	)
+}
+
+func (repository *PostgresRepository) ListUnitsByCategory(
+	ctx context.Context,
+	category string,
+) ([]domain.Unit, error) {
+	return repository.listUnitsByQuery(
+		ctx,
+		`SELECT id, name, symbol, category FROM tags.units WHERE category = $1 ORDER BY id`,
+		category,
+	)
+}
+
+func (repository *PostgresRepository) listUnitsByQuery(
+	ctx context.Context,
+	query string,
+	arguments ...any,
+) ([]domain.Unit, error) {
+	rows, queryError := repository.executor(ctx).QueryContext(ctx, query, arguments...)
+	if queryError != nil {
+		return nil, mapDatabaseError("list units", queryError)
+	}
+	defer rows.Close()
+
+	units := make([]domain.Unit, 0)
+	for rows.Next() {
+		var unit domain.Unit
+		if scanError := rows.Scan(&unit.ID, &unit.Name, &unit.Symbol, &unit.Category); scanError != nil {
+			return nil, fmt.Errorf("scan unit: %w", scanError)
+		}
+
+		units = append(units, unit)
+	}
+
+	if rowsError := rows.Err(); rowsError != nil {
+		return nil, fmt.Errorf("list units: %w", rowsError)
+	}
+
+	return units, nil
+}
+
 func (repository *PostgresRepository) executor(ctx context.Context) sqlExecutor {
 	transaction, ok := ctx.Value(postgresTransactionContextKey).(*sql.Tx)
 	if ok {
@@ -629,6 +1096,267 @@ func scanDeviceWithParams(scanner rowScanner) (domain.DeviceWithParams, error) {
 	return deviceWithParams, nil
 }
 
+func scanTag(scanner rowScanner) (domain.Tag, error) {
+	var (
+		tag         domain.Tag
+		description sql.NullString
+		deletedAt   sql.NullTime
+	)
+
+	scanError := scanner.Scan(
+		&tag.ID,
+		&tag.DeviceID,
+		&tag.Name,
+		&description,
+		&deletedAt,
+		&tag.CreatedAt,
+		&tag.UpdatedAt,
+	)
+	if scanError != nil {
+		return domain.Tag{}, scanError
+	}
+
+	if description.Valid {
+		tag.Description = &description.String
+	}
+
+	if deletedAt.Valid {
+		tag.DeletedAt = &deletedAt.Time
+	}
+
+	return tag, nil
+}
+
+func scanTagParams(scanner rowScanner) (domain.TagParams, error) {
+	var (
+		tagParams domain.TagParams
+		unitID    sql.NullInt64
+		address   []byte
+	)
+
+	scanError := scanner.Scan(
+		&tagParams.ID,
+		&tagParams.TagID,
+		&tagParams.DataTypeID,
+		&unitID,
+		&address,
+		&tagParams.CreatedAt,
+		&tagParams.UpdatedAt,
+	)
+	if scanError != nil {
+		return domain.TagParams{}, scanError
+	}
+
+	if unitID.Valid {
+		tagParams.UnitID = intPointerFromInt64(unitID.Int64)
+	}
+
+	if address != nil {
+		tagParams.Address = append(json.RawMessage(nil), address...)
+	}
+
+	return tagParams, nil
+}
+
+func scanTagSetpoints(scanner rowScanner) (domain.TagSetpoints, error) {
+	var (
+		tagSetpoints domain.TagSetpoints
+		lolo         sql.NullFloat64
+		lo           sql.NullFloat64
+		hi           sql.NullFloat64
+		hihi         sql.NullFloat64
+	)
+
+	scanError := scanner.Scan(
+		&tagSetpoints.ParamID,
+		&lolo,
+		&lo,
+		&hi,
+		&hihi,
+		&tagSetpoints.CreatedAt,
+		&tagSetpoints.UpdatedAt,
+	)
+	if scanError != nil {
+		return domain.TagSetpoints{}, scanError
+	}
+
+	tagSetpoints.LoLo = floatPointerFromNull(lolo)
+	tagSetpoints.Lo = floatPointerFromNull(lo)
+	tagSetpoints.Hi = floatPointerFromNull(hi)
+	tagSetpoints.HiHi = floatPointerFromNull(hihi)
+
+	return tagSetpoints, nil
+}
+
+func scanTagScaling(scanner rowScanner) (domain.TagScaling, error) {
+	var (
+		tagScaling domain.TagScaling
+		rawMin     sql.NullFloat64
+		rawMax     sql.NullFloat64
+		engMin     sql.NullFloat64
+		engMax     sql.NullFloat64
+		factor     sql.NullFloat64
+		offset     sql.NullFloat64
+	)
+
+	scanError := scanner.Scan(
+		&tagScaling.ParamID,
+		&rawMin,
+		&rawMax,
+		&engMin,
+		&engMax,
+		&factor,
+		&offset,
+		&tagScaling.CreatedAt,
+		&tagScaling.UpdatedAt,
+	)
+	if scanError != nil {
+		return domain.TagScaling{}, scanError
+	}
+
+	tagScaling.RawMin = floatPointerFromNull(rawMin)
+	tagScaling.RawMax = floatPointerFromNull(rawMax)
+	tagScaling.EngMin = floatPointerFromNull(engMin)
+	tagScaling.EngMax = floatPointerFromNull(engMax)
+	tagScaling.Factor = floatPointerFromNull(factor)
+	tagScaling.Offset = floatPointerFromNull(offset)
+
+	return tagScaling, nil
+}
+
+func scanTagFull(scanner rowScanner) (domain.TagFull, error) {
+	var (
+		tagFull          domain.TagFull
+		description      sql.NullString
+		deletedAt        sql.NullTime
+		tagParamsID      sql.NullString
+		tagParamsTagID   sql.NullString
+		dataTypeID       sql.NullInt64
+		unitID           sql.NullInt64
+		address          []byte
+		paramsCreatedAt  sql.NullTime
+		paramsUpdatedAt  sql.NullTime
+		setpointsParamID sql.NullString
+		lolo             sql.NullFloat64
+		lo               sql.NullFloat64
+		hi               sql.NullFloat64
+		hihi             sql.NullFloat64
+		setCreatedAt     sql.NullTime
+		setUpdatedAt     sql.NullTime
+		scalingParamID   sql.NullString
+		rawMin           sql.NullFloat64
+		rawMax           sql.NullFloat64
+		engMin           sql.NullFloat64
+		engMax           sql.NullFloat64
+		factor           sql.NullFloat64
+		offset           sql.NullFloat64
+		scalingCreatedAt sql.NullTime
+		scalingUpdatedAt sql.NullTime
+	)
+
+	scanError := scanner.Scan(
+		&tagFull.Tag.ID,
+		&tagFull.Tag.DeviceID,
+		&tagFull.Tag.Name,
+		&description,
+		&deletedAt,
+		&tagFull.Tag.CreatedAt,
+		&tagFull.Tag.UpdatedAt,
+		&tagParamsID,
+		&tagParamsTagID,
+		&dataTypeID,
+		&unitID,
+		&address,
+		&paramsCreatedAt,
+		&paramsUpdatedAt,
+		&setpointsParamID,
+		&lolo,
+		&lo,
+		&hi,
+		&hihi,
+		&setCreatedAt,
+		&setUpdatedAt,
+		&scalingParamID,
+		&rawMin,
+		&rawMax,
+		&engMin,
+		&engMax,
+		&factor,
+		&offset,
+		&scalingCreatedAt,
+		&scalingUpdatedAt,
+	)
+	if scanError != nil {
+		return domain.TagFull{}, scanError
+	}
+
+	if description.Valid {
+		tagFull.Tag.Description = &description.String
+	}
+
+	if deletedAt.Valid {
+		tagFull.Tag.DeletedAt = &deletedAt.Time
+	}
+
+	if tagParamsID.Valid {
+		tagFull.Params = &domain.TagParams{
+			ID:         tagParamsID.String,
+			TagID:      tagParamsTagID.String,
+			DataTypeID: int(dataTypeID.Int64),
+			UnitID:     intPointerFromInt64(unitID.Int64),
+			CreatedAt:  paramsCreatedAt.Time,
+			UpdatedAt:  paramsUpdatedAt.Time,
+		}
+		if address != nil {
+			tagFull.Params.Address = append(json.RawMessage(nil), address...)
+		}
+		if !unitID.Valid {
+			tagFull.Params.UnitID = nil
+		}
+	}
+
+	if setpointsParamID.Valid {
+		tagFull.Setpoints = &domain.TagSetpoints{
+			ParamID:   setpointsParamID.String,
+			LoLo:      floatPointerFromNull(lolo),
+			Lo:        floatPointerFromNull(lo),
+			Hi:        floatPointerFromNull(hi),
+			HiHi:      floatPointerFromNull(hihi),
+			CreatedAt: setCreatedAt.Time,
+			UpdatedAt: setUpdatedAt.Time,
+		}
+	}
+
+	if scalingParamID.Valid {
+		tagFull.Scaling = &domain.TagScaling{
+			ParamID:   scalingParamID.String,
+			RawMin:    floatPointerFromNull(rawMin),
+			RawMax:    floatPointerFromNull(rawMax),
+			EngMin:    floatPointerFromNull(engMin),
+			EngMax:    floatPointerFromNull(engMax),
+			Factor:    floatPointerFromNull(factor),
+			Offset:    floatPointerFromNull(offset),
+			CreatedAt: scalingCreatedAt.Time,
+			UpdatedAt: scalingUpdatedAt.Time,
+		}
+	}
+
+	return tagFull, nil
+}
+
+func intPointerFromInt64(value int64) *int {
+	convertedValue := int(value)
+	return &convertedValue
+}
+
+func floatPointerFromNull(value sql.NullFloat64) *float64 {
+	if !value.Valid {
+		return nil
+	}
+
+	return &value.Float64
+}
+
 func mapDatabaseError(operation string, err error) error {
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.ErrNotFound
@@ -648,6 +1376,11 @@ func mapDatabaseError(operation string, err error) error {
 var _ domain.DeviceRepository = (*PostgresRepository)(nil)
 var _ domain.DeviceParamsRepository = (*PostgresRepository)(nil)
 var _ domain.DeviceTypeRepository = (*PostgresRepository)(nil)
+var _ domain.TagRepository = (*PostgresRepository)(nil)
+var _ domain.TagParamsRepository = (*PostgresRepository)(nil)
+var _ domain.TagSetpointsRepository = (*PostgresRepository)(nil)
+var _ domain.TagScalingRepository = (*PostgresRepository)(nil)
+var _ domain.ReferenceRepository = (*PostgresRepository)(nil)
 var _ interface {
 	InTransaction(ctx context.Context, operation func(context.Context) error) error
 } = (*PostgresRepository)(nil)

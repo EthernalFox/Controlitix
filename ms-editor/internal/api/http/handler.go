@@ -15,6 +15,7 @@ type Handler struct {
 	diagramUseCase          *usecase.DiagramUseCase
 	figureUseCase           *usecase.FigureUseCase
 	deviceUseCase           *usecase.DeviceUseCase
+	tagUseCase              *usecase.TagUseCase
 }
 
 func NewHandler(
@@ -22,12 +23,14 @@ func NewHandler(
 	diagramUseCase *usecase.DiagramUseCase,
 	figureUseCase *usecase.FigureUseCase,
 	deviceUseCase *usecase.DeviceUseCase,
+	tagUseCase *usecase.TagUseCase,
 ) *Handler {
 	return &Handler{
 		monitoringObjectUseCase: monitoringObjectUseCase,
 		diagramUseCase:          diagramUseCase,
 		figureUseCase:           figureUseCase,
 		deviceUseCase:           deviceUseCase,
+		tagUseCase:              tagUseCase,
 	}
 }
 
@@ -40,6 +43,9 @@ func (handler *Handler) RegisterRoutes(httpServeMux *http.ServeMux) {
 	httpServeMux.HandleFunc("/devices", handler.handleDevices)
 	httpServeMux.HandleFunc("/devices/", handler.handleDevices)
 	httpServeMux.HandleFunc("/device-types", handler.handleDeviceTypes)
+	httpServeMux.HandleFunc("/tags/", handler.handleTags)
+	httpServeMux.HandleFunc("/data-types", handler.handleDataTypes)
+	httpServeMux.HandleFunc("/units", handler.handleUnits)
 	registerSwaggerRoutes(httpServeMux)
 }
 
@@ -230,6 +236,18 @@ func (handler *Handler) handleDevices(
 		return
 	}
 
+	if len(pathSegments) == 2 && pathSegments[1] == "tags" {
+		switch request.Method {
+		case http.MethodPost:
+			handler.createTag(responseWriter, request, pathSegments[0])
+		case http.MethodGet:
+			handler.listTagsByDevice(responseWriter, request, pathSegments[0])
+		default:
+			writeError(responseWriter, http.StatusMethodNotAllowed, "method not allowed")
+		}
+		return
+	}
+
 	writeError(responseWriter, http.StatusNotFound, "not found")
 }
 
@@ -243,6 +261,86 @@ func (handler *Handler) handleDeviceTypes(
 	}
 
 	handler.listDeviceTypes(responseWriter, request)
+}
+
+func (handler *Handler) handleTags(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+) {
+	pathSegments := splitPath(strings.TrimPrefix(request.URL.Path, "/tags/"))
+	if len(pathSegments) == 1 {
+		switch request.Method {
+		case http.MethodGet:
+			handler.getTag(responseWriter, request, pathSegments[0])
+		case http.MethodPatch:
+			handler.updateTag(responseWriter, request, pathSegments[0])
+		case http.MethodDelete:
+			handler.deleteTag(responseWriter, request, pathSegments[0])
+		default:
+			writeError(responseWriter, http.StatusMethodNotAllowed, "method not allowed")
+		}
+		return
+	}
+
+	if len(pathSegments) == 2 && pathSegments[1] == "params" {
+		if request.Method != http.MethodPut {
+			writeError(responseWriter, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+
+		handler.updateTagParams(responseWriter, request, pathSegments[0])
+		return
+	}
+
+	if len(pathSegments) == 2 && pathSegments[1] == "setpoints" {
+		switch request.Method {
+		case http.MethodPut:
+			handler.updateTagSetpoints(responseWriter, request, pathSegments[0])
+		case http.MethodDelete:
+			handler.deleteTagSetpoints(responseWriter, request, pathSegments[0])
+		default:
+			writeError(responseWriter, http.StatusMethodNotAllowed, "method not allowed")
+		}
+		return
+	}
+
+	if len(pathSegments) == 2 && pathSegments[1] == "scaling" {
+		switch request.Method {
+		case http.MethodPut:
+			handler.updateTagScaling(responseWriter, request, pathSegments[0])
+		case http.MethodDelete:
+			handler.deleteTagScaling(responseWriter, request, pathSegments[0])
+		default:
+			writeError(responseWriter, http.StatusMethodNotAllowed, "method not allowed")
+		}
+		return
+	}
+
+	writeError(responseWriter, http.StatusNotFound, "not found")
+}
+
+func (handler *Handler) handleDataTypes(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+) {
+	if request.Method != http.MethodGet {
+		writeError(responseWriter, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	handler.listDataTypes(responseWriter, request)
+}
+
+func (handler *Handler) handleUnits(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+) {
+	if request.Method != http.MethodGet {
+		writeError(responseWriter, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	handler.listUnits(responseWriter, request)
 }
 
 func (handler *Handler) createMonitoringObject(
@@ -840,6 +938,310 @@ func (handler *Handler) listDeviceTypes(
 	writeJSON(responseWriter, http.StatusOK, responsePayload)
 }
 
+func (handler *Handler) createTag(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	deviceID string,
+) {
+	requestPayload, decodeError := decodeJSONBody[createTagRequest](request.Body)
+	if decodeError != nil {
+		writeError(responseWriter, http.StatusBadRequest, "invalid json")
+		return
+	}
+
+	tagFull, useCaseError := handler.tagUseCase.CreateTag(
+		request.Context(),
+		deviceID,
+		requestPayload.Name,
+		requestPayload.Description,
+		mapTagParamsInput(requestPayload.Params),
+		mapSetpoints(requestPayload.Setpoints),
+		mapScaling(requestPayload.Scaling),
+	)
+	if useCaseError != nil {
+		writeDomainError(responseWriter, useCaseError)
+		return
+	}
+
+	writeJSON(responseWriter, http.StatusCreated, mapTagFullResponse(tagFull))
+}
+
+func (handler *Handler) listTagsByDevice(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	deviceID string,
+) {
+	tags, useCaseError := handler.tagUseCase.ListTagsByDevice(
+		request.Context(),
+		deviceID,
+	)
+	if useCaseError != nil {
+		writeDomainError(responseWriter, useCaseError)
+		return
+	}
+
+	responsePayload := make([]tagResponse, 0, len(tags))
+	for _, tag := range tags {
+		responsePayload = append(responsePayload, mapTagResponse(tag))
+	}
+
+	writeJSON(responseWriter, http.StatusOK, responsePayload)
+}
+
+func (handler *Handler) getTag(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	tagID string,
+) {
+	tagFull, useCaseError := handler.tagUseCase.GetTag(request.Context(), tagID)
+	if useCaseError != nil {
+		writeDomainError(responseWriter, useCaseError)
+		return
+	}
+
+	writeJSON(responseWriter, http.StatusOK, mapTagFullResponse(tagFull))
+}
+
+func (handler *Handler) updateTag(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	tagID string,
+) {
+	requestPayload, decodeError := decodeJSONBody[updateTagRequest](request.Body)
+	if decodeError != nil {
+		writeError(responseWriter, http.StatusBadRequest, "invalid json")
+		return
+	}
+
+	_, useCaseError := handler.tagUseCase.UpdateTag(
+		request.Context(),
+		tagID,
+		domain.TagUpdate{
+			Name:        requestPayload.Name,
+			Description: requestPayload.Description,
+		},
+	)
+	if useCaseError != nil {
+		writeDomainError(responseWriter, useCaseError)
+		return
+	}
+
+	tagFull, getError := handler.tagUseCase.GetTag(request.Context(), tagID)
+	if getError != nil {
+		writeDomainError(responseWriter, getError)
+		return
+	}
+
+	writeJSON(responseWriter, http.StatusOK, mapTagFullResponse(tagFull))
+}
+
+func (handler *Handler) deleteTag(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	tagID string,
+) {
+	useCaseError := handler.tagUseCase.DeleteTag(request.Context(), tagID)
+	if useCaseError != nil {
+		writeDomainError(responseWriter, useCaseError)
+		return
+	}
+
+	writeJSON(responseWriter, http.StatusNoContent, nil)
+}
+
+func (handler *Handler) updateTagParams(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	tagID string,
+) {
+	requestPayload, decodeError := decodeJSONBody[tagParamsInput](request.Body)
+	if decodeError != nil {
+		writeError(responseWriter, http.StatusBadRequest, "invalid json")
+		return
+	}
+
+	_, useCaseError := handler.tagUseCase.UpdateTagParams(
+		request.Context(),
+		tagID,
+		domain.TagParamsUpdate{
+			DataTypeID: intPointer(requestPayload.DataTypeID),
+			UnitID:     requestPayload.UnitID,
+			Address:    jsonRawMessagePointer(requestPayload.Address),
+		},
+	)
+	if useCaseError != nil {
+		writeDomainError(responseWriter, useCaseError)
+		return
+	}
+
+	tagFull, getError := handler.tagUseCase.GetTag(request.Context(), tagID)
+	if getError != nil {
+		writeDomainError(responseWriter, getError)
+		return
+	}
+
+	writeJSON(responseWriter, http.StatusOK, mapTagFullResponse(tagFull))
+}
+
+func (handler *Handler) updateTagSetpoints(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	tagID string,
+) {
+	requestPayload, decodeError := decodeJSONBody[setpointsInput](request.Body)
+	if decodeError != nil {
+		writeError(responseWriter, http.StatusBadRequest, "invalid json")
+		return
+	}
+
+	_, useCaseError := handler.tagUseCase.UpdateTagSetpoints(
+		request.Context(),
+		tagID,
+		domain.TagSetpoints{
+			LoLo: requestPayload.LoLo,
+			Lo:   requestPayload.Lo,
+			Hi:   requestPayload.Hi,
+			HiHi: requestPayload.HiHi,
+		},
+	)
+	if useCaseError != nil {
+		writeDomainError(responseWriter, useCaseError)
+		return
+	}
+
+	tagFull, getError := handler.tagUseCase.GetTag(request.Context(), tagID)
+	if getError != nil {
+		writeDomainError(responseWriter, getError)
+		return
+	}
+
+	writeJSON(responseWriter, http.StatusOK, mapTagFullResponse(tagFull))
+}
+
+func (handler *Handler) deleteTagSetpoints(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	tagID string,
+) {
+	useCaseError := handler.tagUseCase.DeleteTagSetpoints(request.Context(), tagID)
+	if useCaseError != nil {
+		writeDomainError(responseWriter, useCaseError)
+		return
+	}
+
+	tagFull, getError := handler.tagUseCase.GetTag(request.Context(), tagID)
+	if getError != nil {
+		writeDomainError(responseWriter, getError)
+		return
+	}
+
+	writeJSON(responseWriter, http.StatusOK, mapTagFullResponse(tagFull))
+}
+
+func (handler *Handler) updateTagScaling(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	tagID string,
+) {
+	requestPayload, decodeError := decodeJSONBody[scalingInput](request.Body)
+	if decodeError != nil {
+		writeError(responseWriter, http.StatusBadRequest, "invalid json")
+		return
+	}
+
+	_, useCaseError := handler.tagUseCase.UpdateTagScaling(
+		request.Context(),
+		tagID,
+		domain.TagScaling{
+			RawMin: requestPayload.RawMin,
+			RawMax: requestPayload.RawMax,
+			EngMin: requestPayload.EngMin,
+			EngMax: requestPayload.EngMax,
+			Factor: requestPayload.Factor,
+			Offset: requestPayload.Offset,
+		},
+	)
+	if useCaseError != nil {
+		writeDomainError(responseWriter, useCaseError)
+		return
+	}
+
+	tagFull, getError := handler.tagUseCase.GetTag(request.Context(), tagID)
+	if getError != nil {
+		writeDomainError(responseWriter, getError)
+		return
+	}
+
+	writeJSON(responseWriter, http.StatusOK, mapTagFullResponse(tagFull))
+}
+
+func (handler *Handler) deleteTagScaling(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	tagID string,
+) {
+	useCaseError := handler.tagUseCase.DeleteTagScaling(request.Context(), tagID)
+	if useCaseError != nil {
+		writeDomainError(responseWriter, useCaseError)
+		return
+	}
+
+	tagFull, getError := handler.tagUseCase.GetTag(request.Context(), tagID)
+	if getError != nil {
+		writeDomainError(responseWriter, getError)
+		return
+	}
+
+	writeJSON(responseWriter, http.StatusOK, mapTagFullResponse(tagFull))
+}
+
+func (handler *Handler) listDataTypes(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+) {
+	dataTypes, useCaseError := handler.tagUseCase.ListDataTypes(request.Context())
+	if useCaseError != nil {
+		writeDomainError(responseWriter, useCaseError)
+		return
+	}
+
+	responsePayload := make([]dataTypeResponse, 0, len(dataTypes))
+	for _, dataType := range dataTypes {
+		responsePayload = append(responsePayload, dataTypeResponse{
+			ID:   dataType.ID,
+			Name: dataType.Name,
+		})
+	}
+
+	writeJSON(responseWriter, http.StatusOK, responsePayload)
+}
+
+func (handler *Handler) listUnits(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+) {
+	units, useCaseError := handler.tagUseCase.ListUnits(
+		request.Context(),
+		request.URL.Query().Get("category"),
+	)
+	if useCaseError != nil {
+		writeDomainError(responseWriter, useCaseError)
+		return
+	}
+
+	responsePayload := make([]unitResponse, 0, len(units))
+	for _, unit := range units {
+		responsePayload = append(responsePayload, unitResponse{
+			ID:       unit.ID,
+			Name:     unit.Name,
+			Symbol:   unit.Symbol,
+			Category: unit.Category,
+		})
+	}
+
+	writeJSON(responseWriter, http.StatusOK, responsePayload)
+}
+
 func mapMonitoringObjectResponse(
 	monitoringObject domain.MonitoringObject,
 ) monitoringObjectResponse {
@@ -899,6 +1301,122 @@ func mapDeviceResponse(device domain.Device, settings json.RawMessage) deviceRes
 		CreatedAt:   device.CreatedAt,
 		UpdatedAt:   device.UpdatedAt,
 	}
+}
+
+func mapTagFullResponse(tagFull domain.TagFull) tagResponse {
+	return tagResponse{
+		ID:          tagFull.Tag.ID,
+		DeviceID:    tagFull.Tag.DeviceID,
+		Name:        tagFull.Tag.Name,
+		Description: tagFull.Tag.Description,
+		Params:      mapTagParamsResponse(tagFull.Params),
+		Setpoints:   mapTagSetpointsResponse(tagFull.Setpoints),
+		Scaling:     mapTagScalingResponse(tagFull.Scaling),
+		CreatedAt:   tagFull.Tag.CreatedAt,
+		UpdatedAt:   tagFull.Tag.UpdatedAt,
+	}
+}
+
+func mapTagResponse(tag domain.Tag) tagResponse {
+	return tagResponse{
+		ID:          tag.ID,
+		DeviceID:    tag.DeviceID,
+		Name:        tag.Name,
+		Description: tag.Description,
+		CreatedAt:   tag.CreatedAt,
+		UpdatedAt:   tag.UpdatedAt,
+	}
+}
+
+func mapTagParamsResponse(tagParams *domain.TagParams) *tagParamsResponse {
+	if tagParams == nil {
+		return nil
+	}
+
+	return &tagParamsResponse{
+		ID:         tagParams.ID,
+		DataTypeID: tagParams.DataTypeID,
+		UnitID:     tagParams.UnitID,
+		Address:    tagParams.Address,
+		CreatedAt:  tagParams.CreatedAt,
+		UpdatedAt:  tagParams.UpdatedAt,
+	}
+}
+
+func mapTagSetpointsResponse(setpoints *domain.TagSetpoints) *setpointsInput {
+	if setpoints == nil {
+		return nil
+	}
+
+	return &setpointsInput{
+		LoLo: setpoints.LoLo,
+		Lo:   setpoints.Lo,
+		Hi:   setpoints.Hi,
+		HiHi: setpoints.HiHi,
+	}
+}
+
+func mapTagScalingResponse(scaling *domain.TagScaling) *scalingInput {
+	if scaling == nil {
+		return nil
+	}
+
+	return &scalingInput{
+		RawMin: scaling.RawMin,
+		RawMax: scaling.RawMax,
+		EngMin: scaling.EngMin,
+		EngMax: scaling.EngMax,
+		Factor: scaling.Factor,
+		Offset: scaling.Offset,
+	}
+}
+
+func mapTagParamsInput(input *tagParamsInput) *domain.TagParams {
+	if input == nil {
+		return nil
+	}
+
+	return &domain.TagParams{
+		DataTypeID: input.DataTypeID,
+		UnitID:     input.UnitID,
+		Address:    input.Address,
+	}
+}
+
+func mapSetpoints(input *setpointsInput) *domain.TagSetpoints {
+	if input == nil {
+		return nil
+	}
+
+	return &domain.TagSetpoints{
+		LoLo: input.LoLo,
+		Lo:   input.Lo,
+		Hi:   input.Hi,
+		HiHi: input.HiHi,
+	}
+}
+
+func mapScaling(input *scalingInput) *domain.TagScaling {
+	if input == nil {
+		return nil
+	}
+
+	return &domain.TagScaling{
+		RawMin: input.RawMin,
+		RawMax: input.RawMax,
+		EngMin: input.EngMin,
+		EngMax: input.EngMax,
+		Factor: input.Factor,
+		Offset: input.Offset,
+	}
+}
+
+func intPointer(value int) *int {
+	return &value
+}
+
+func jsonRawMessagePointer(value json.RawMessage) *json.RawMessage {
+	return &value
 }
 
 func splitPath(path string) []string {

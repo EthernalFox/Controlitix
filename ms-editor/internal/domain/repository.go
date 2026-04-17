@@ -143,3 +143,84 @@ type DeviceTypeRepository interface {
 		typeID int,
 	) (DeviceType, error)
 }
+
+type TagRepository interface {
+	CreateTag(
+		ctx context.Context,
+		tag Tag,
+	) (Tag, error)
+	GetTag(
+		ctx context.Context,
+		tagID string,
+	) (TagFull, error)
+	UpdateTag(
+		ctx context.Context,
+		tagID string,
+		update TagUpdate,
+	) (Tag, error)
+	DeleteTag(
+		ctx context.Context,
+		tagID string,
+	) error
+	ListTagsByDevice(
+		ctx context.Context,
+		deviceID string,
+	) ([]Tag, error)
+}
+
+type TagParamsRepository interface {
+	UpsertTagParams(
+		ctx context.Context,
+		tagID string,
+		params TagParams,
+	) (TagParams, error)
+	GetTagParams(
+		ctx context.Context,
+		tagID string,
+	) (TagParams, error)
+}
+
+type TagSetpointsRepository interface {
+	UpsertTagSetpoints(
+		ctx context.Context,
+		paramID string,
+		setpoints TagSetpoints,
+	) (TagSetpoints, error)
+	GetTagSetpoints(
+		ctx context.Context,
+		paramID string,
+	) (TagSetpoints, error)
+	DeleteTagSetpoints(
+		ctx context.Context,
+		paramID string,
+	) error
+}
+
+type TagScalingRepository interface {
+	UpsertTagScaling(
+		ctx context.Context,
+		paramID string,
+		scaling TagScaling,
+	) (TagScaling, error)
+	GetTagScaling(
+		ctx context.Context,
+		paramID string,
+	) (TagScaling, error)
+	DeleteTagScaling(
+		ctx context.Context,
+		paramID string,
+	) error
+}
+
+type ReferenceRepository interface {
+	ListDataTypes(
+		ctx context.Context,
+	) ([]DataType, error)
+	ListUnits(
+		ctx context.Context,
+	) ([]Unit, error)
+	ListUnitsByCategory(
+		ctx context.Context,
+		category string,
+	) ([]Unit, error)
+}

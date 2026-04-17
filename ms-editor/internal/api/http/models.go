@@ -98,6 +98,74 @@ type deviceTypeResponse struct {
 	Name string `json:"name"`
 }
 
+type createTagRequest struct {
+	Name        string          `json:"name"`
+	Description *string         `json:"description"`
+	Params      *tagParamsInput `json:"params"`
+	Setpoints   *setpointsInput `json:"setpoints"`
+	Scaling     *scalingInput   `json:"scaling"`
+}
+
+type tagParamsInput struct {
+	DataTypeID int             `json:"data_type_id"`
+	UnitID     *int            `json:"unit_id"`
+	Address    json.RawMessage `json:"address"`
+}
+
+type setpointsInput struct {
+	LoLo *float64 `json:"lolo"`
+	Lo   *float64 `json:"lo"`
+	Hi   *float64 `json:"hi"`
+	HiHi *float64 `json:"hihi"`
+}
+
+type scalingInput struct {
+	RawMin *float64 `json:"raw_min"`
+	RawMax *float64 `json:"raw_max"`
+	EngMin *float64 `json:"eng_min"`
+	EngMax *float64 `json:"eng_max"`
+	Factor *float64 `json:"factor"`
+	Offset *float64 `json:"offset"`
+}
+
+type updateTagRequest struct {
+	Name        *string `json:"name"`
+	Description *string `json:"description"`
+}
+
+type tagResponse struct {
+	ID          string             `json:"id"`
+	DeviceID    string             `json:"device_id"`
+	Name        string             `json:"name"`
+	Description *string            `json:"description"`
+	Params      *tagParamsResponse `json:"params"`
+	Setpoints   *setpointsInput    `json:"setpoints"`
+	Scaling     *scalingInput      `json:"scaling"`
+	CreatedAt   time.Time          `json:"created_at"`
+	UpdatedAt   time.Time          `json:"updated_at"`
+}
+
+type tagParamsResponse struct {
+	ID         string          `json:"id"`
+	DataTypeID int             `json:"data_type_id"`
+	UnitID     *int            `json:"unit_id"`
+	Address    json.RawMessage `json:"address"`
+	CreatedAt  time.Time       `json:"created_at"`
+	UpdatedAt  time.Time       `json:"updated_at"`
+}
+
+type dataTypeResponse struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+type unitResponse struct {
+	ID       int    `json:"id"`
+	Name     string `json:"name"`
+	Symbol   string `json:"symbol"`
+	Category string `json:"category"`
+}
+
 type errorResponse struct {
 	Message string `json:"message"`
 }

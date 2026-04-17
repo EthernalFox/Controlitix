@@ -70,6 +70,15 @@ func main() {
 		kafkaEventPublisher,
 		logger,
 	)
+	tagUseCase := usecase.NewTagUseCase(
+		postgresRepository,
+		postgresRepository,
+		postgresRepository,
+		postgresRepository,
+		postgresRepository,
+		kafkaEventPublisher,
+		logger,
+	)
 
 	httpServeMux := http.NewServeMux()
 	httpHandler := transporthttp.NewHandler(
@@ -77,6 +86,7 @@ func main() {
 		diagramUseCase,
 		figureUseCase,
 		deviceUseCase,
+		tagUseCase,
 	)
 	httpHandler.RegisterRoutes(httpServeMux)
 
