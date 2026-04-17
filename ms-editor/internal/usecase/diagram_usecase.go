@@ -2,20 +2,32 @@ package usecase
 
 import (
 	"context"
+	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/EthernalFox/Controlitix/ms-editor/internal/domain"
 )
 
 type DiagramUseCase struct {
 	diagramRepository domain.DiagramRepository
+	eventPublisher    domain.EventPublisher
+	logger            *slog.Logger
 }
 
 func NewDiagramUseCase(
 	diagramRepository domain.DiagramRepository,
+	eventPublisher domain.EventPublisher,
+	logger *slog.Logger,
 ) *DiagramUseCase {
+	if logger == nil {
+		logger = slog.Default()
+	}
+
 	return &DiagramUseCase{
 		diagramRepository: diagramRepository,
+		eventPublisher:    eventPublisher,
+		logger:            logger,
 	}
 }
 
@@ -79,10 +91,35 @@ func (useCase *DiagramUseCase) DeleteDiagram(
 		return domain.ErrInvalidInput
 	}
 
-	return useCase.diagramRepository.DeleteDiagram(
+	deleteStats, deleteError := useCase.diagramRepository.DeleteDiagram(
 		ctx,
 		diagramID,
 	)
+	if deleteError != nil {
+		return deleteError
+	}
+
+	useCase.logger.Info(
+		"diagram cascade soft deleted",
+		"method",
+		"DeleteDiagram",
+		"diagram_id",
+		diagramID,
+		"diagrams_deleted",
+		deleteStats.DiagramsDeleted,
+		"figures_deleted",
+		deleteStats.FiguresDeleted,
+	)
+
+	useCase.publishDiagramEvent(
+		ctx,
+		"DeleteDiagram",
+		diagramID,
+		"deleted",
+		nil,
+	)
+
+	return nil
 }
 
 func (useCase *DiagramUseCase) PublishDiagram(
@@ -108,4 +145,49 @@ func (useCase *DiagramUseCase) ListDiagrams(
 	}
 
 	return useCase.diagramRepository.ListDiagrams(ctx, query)
+}
+
+func (useCase *DiagramUseCase) publishDiagramEvent(
+	ctx context.Context,
+	method string,
+	diagramID string,
+	operation string,
+	payload any,
+) {
+	if useCase.eventPublisher == nil {
+		return
+	}
+
+	eventPayload, payloadError := marshalEventPayload(payload)
+	if payloadError != nil {
+		useCase.logger.Error(
+			"failed to marshal config.changed payload",
+			"method",
+			method,
+			"diagram_id",
+			diagramID,
+			"error",
+			payloadError,
+		)
+		return
+	}
+
+	publishError := useCase.eventPublisher.Publish(ctx, domain.ConfigChangedEvent{
+		EntityType: "diagram",
+		EntityID:   diagramID,
+		Operation:  operation,
+		Timestamp:  time.Now().UTC(),
+		Payload:    eventPayload,
+	})
+	if publishError != nil {
+		useCase.logger.Error(
+			"failed to publish config.changed event",
+			"method",
+			method,
+			"diagram_id",
+			diagramID,
+			"error",
+			publishError,
+		)
+	}
 }

@@ -60,9 +60,21 @@ func main() {
 		}
 	}()
 
-	monitoringObjectUseCase := usecase.NewMonitoringObjectUseCase(postgresRepository)
-	diagramUseCase := usecase.NewDiagramUseCase(postgresRepository)
-	figureUseCase := usecase.NewFigureUseCase(postgresRepository)
+	monitoringObjectUseCase := usecase.NewMonitoringObjectUseCase(
+		postgresRepository,
+		kafkaEventPublisher,
+		logger,
+	)
+	diagramUseCase := usecase.NewDiagramUseCase(
+		postgresRepository,
+		kafkaEventPublisher,
+		logger,
+	)
+	figureUseCase := usecase.NewFigureUseCase(
+		postgresRepository,
+		kafkaEventPublisher,
+		logger,
+	)
 	deviceUseCase := usecase.NewDeviceUseCase(
 		postgresRepository,
 		postgresRepository,

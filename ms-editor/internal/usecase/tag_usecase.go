@@ -211,6 +211,16 @@ func (useCase *TagUseCase) DeleteTag(
 		return deleteError
 	}
 
+	useCase.logger.Info(
+		"tag soft deleted",
+		"method",
+		"DeleteTag",
+		"tag_id",
+		tagID,
+		"tags_deleted",
+		1,
+	)
+
 	useCase.publishTagEvent(
 		ctx,
 		"DeleteTag",

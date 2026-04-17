@@ -21,6 +21,24 @@ type FigureUpdate struct {
 	Parameters *json.RawMessage
 }
 
+type MonitoringObjectDeleteStats struct {
+	ObjectsDeleted  int
+	DevicesDeleted  int
+	TagsDeleted     int
+	DiagramsDeleted int
+	FiguresDeleted  int
+}
+
+type DeviceDeleteStats struct {
+	DevicesDeleted int
+	TagsDeleted    int
+}
+
+type DiagramDeleteStats struct {
+	DiagramsDeleted int
+	FiguresDeleted  int
+}
+
 type MonitoringObjectRepository interface {
 	CreateMonitoringObject(
 		ctx context.Context,
@@ -38,7 +56,7 @@ type MonitoringObjectRepository interface {
 	DeleteMonitoringObject(
 		ctx context.Context,
 		monitoringObjectID string,
-	) error
+	) (MonitoringObjectDeleteStats, error)
 	ListMonitoringObjects(
 		ctx context.Context,
 		query ObjectListQuery,
@@ -62,7 +80,7 @@ type DiagramRepository interface {
 	DeleteDiagram(
 		ctx context.Context,
 		diagramID string,
-	) error
+	) (DiagramDeleteStats, error)
 	PublishDiagram(
 		ctx context.Context,
 		diagramID string,
@@ -111,7 +129,7 @@ type DeviceRepository interface {
 	DeleteDevice(
 		ctx context.Context,
 		deviceID string,
-	) error
+	) (DeviceDeleteStats, error)
 	ListDevices(
 		ctx context.Context,
 		query DeviceListQuery,

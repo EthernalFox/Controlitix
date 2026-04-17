@@ -3,20 +3,32 @@ package usecase
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/EthernalFox/Controlitix/ms-editor/internal/domain"
 )
 
 type FigureUseCase struct {
 	figureRepository domain.FigureRepository
+	eventPublisher   domain.EventPublisher
+	logger           *slog.Logger
 }
 
 func NewFigureUseCase(
 	figureRepository domain.FigureRepository,
+	eventPublisher domain.EventPublisher,
+	logger *slog.Logger,
 ) *FigureUseCase {
+	if logger == nil {
+		logger = slog.Default()
+	}
+
 	return &FigureUseCase{
 		figureRepository: figureRepository,
+		eventPublisher:   eventPublisher,
+		logger:           logger,
 	}
 }
 
@@ -68,10 +80,33 @@ func (useCase *FigureUseCase) DeleteFigure(
 		return domain.ErrInvalidInput
 	}
 
-	return useCase.figureRepository.DeleteFigure(
+	deleteError := useCase.figureRepository.DeleteFigure(
 		ctx,
 		figureID,
 	)
+	if deleteError != nil {
+		return deleteError
+	}
+
+	useCase.logger.Info(
+		"figure soft deleted",
+		"method",
+		"DeleteFigure",
+		"figure_id",
+		figureID,
+		"figures_deleted",
+		1,
+	)
+
+	useCase.publishFigureEvent(
+		ctx,
+		"DeleteFigure",
+		figureID,
+		"deleted",
+		nil,
+	)
+
+	return nil
 }
 
 func (useCase *FigureUseCase) ListFigures(
@@ -83,4 +118,49 @@ func (useCase *FigureUseCase) ListFigures(
 	}
 
 	return useCase.figureRepository.ListFigures(ctx, query)
+}
+
+func (useCase *FigureUseCase) publishFigureEvent(
+	ctx context.Context,
+	method string,
+	figureID string,
+	operation string,
+	payload any,
+) {
+	if useCase.eventPublisher == nil {
+		return
+	}
+
+	eventPayload, payloadError := marshalEventPayload(payload)
+	if payloadError != nil {
+		useCase.logger.Error(
+			"failed to marshal config.changed payload",
+			"method",
+			method,
+			"figure_id",
+			figureID,
+			"error",
+			payloadError,
+		)
+		return
+	}
+
+	publishError := useCase.eventPublisher.Publish(ctx, domain.ConfigChangedEvent{
+		EntityType: "figure",
+		EntityID:   figureID,
+		Operation:  operation,
+		Timestamp:  time.Now().UTC(),
+		Payload:    eventPayload,
+	})
+	if publishError != nil {
+		useCase.logger.Error(
+			"failed to publish config.changed event",
+			"method",
+			method,
+			"figure_id",
+			figureID,
+			"error",
+			publishError,
+		)
+	}
 }

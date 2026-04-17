@@ -165,10 +165,22 @@ func (useCase *DeviceUseCase) DeleteDevice(
 		return getError
 	}
 
-	deleteError := useCase.deviceRepo.DeleteDevice(ctx, deviceID)
+	deleteStats, deleteError := useCase.deviceRepo.DeleteDevice(ctx, deviceID)
 	if deleteError != nil {
 		return deleteError
 	}
+
+	useCase.logger.Info(
+		"device cascade soft deleted",
+		"method",
+		"DeleteDevice",
+		"device_id",
+		deviceID,
+		"devices_deleted",
+		deleteStats.DevicesDeleted,
+		"tags_deleted",
+		deleteStats.TagsDeleted,
+	)
 
 	useCase.publishDeviceEvent(
 		ctx,

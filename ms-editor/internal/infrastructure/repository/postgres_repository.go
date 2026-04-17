@@ -91,8 +91,59 @@ func (repository *PostgresRepository) UpdateMonitoringObject(
 func (repository *PostgresRepository) DeleteMonitoringObject(
 	ctx context.Context,
 	monitoringObjectID string,
-) error {
-	return domain.ErrNotImplemented
+) (domain.MonitoringObjectDeleteStats, error) {
+	deleteStats := domain.MonitoringObjectDeleteStats{}
+
+	transactionError := repository.InTransaction(ctx, func(transactionContext context.Context) error {
+		var operationError error
+
+		deleteStats.TagsDeleted, operationError = repository.softDeleteTagsByObjectID(
+			transactionContext,
+			monitoringObjectID,
+		)
+		if operationError != nil {
+			return operationError
+		}
+
+		deleteStats.DevicesDeleted, operationError = repository.softDeleteDevicesByObjectID(
+			transactionContext,
+			monitoringObjectID,
+		)
+		if operationError != nil {
+			return operationError
+		}
+
+		deleteStats.FiguresDeleted, operationError = repository.softDeleteFiguresByObjectID(
+			transactionContext,
+			monitoringObjectID,
+		)
+		if operationError != nil {
+			return operationError
+		}
+
+		deleteStats.DiagramsDeleted, operationError = repository.softDeleteDiagramsByObjectID(
+			transactionContext,
+			monitoringObjectID,
+		)
+		if operationError != nil {
+			return operationError
+		}
+
+		deleteStats.ObjectsDeleted, operationError = repository.softDeleteMonitoringObjectByID(
+			transactionContext,
+			monitoringObjectID,
+		)
+		if operationError != nil {
+			return operationError
+		}
+
+		return nil
+	})
+	if transactionError != nil {
+		return domain.MonitoringObjectDeleteStats{}, transactionError
+	}
+
+	return deleteStats, nil
 }
 
 func (repository *PostgresRepository) ListMonitoringObjects(
@@ -147,8 +198,35 @@ func (repository *PostgresRepository) UpdateDiagram(
 func (repository *PostgresRepository) DeleteDiagram(
 	ctx context.Context,
 	diagramID string,
-) error {
-	return domain.ErrNotImplemented
+) (domain.DiagramDeleteStats, error) {
+	deleteStats := domain.DiagramDeleteStats{}
+
+	transactionError := repository.InTransaction(ctx, func(transactionContext context.Context) error {
+		var operationError error
+
+		deleteStats.FiguresDeleted, operationError = repository.softDeleteFiguresByDiagramID(
+			transactionContext,
+			diagramID,
+		)
+		if operationError != nil {
+			return operationError
+		}
+
+		deleteStats.DiagramsDeleted, operationError = repository.softDeleteDiagramByID(
+			transactionContext,
+			diagramID,
+		)
+		if operationError != nil {
+			return operationError
+		}
+
+		return nil
+	})
+	if transactionError != nil {
+		return domain.DiagramDeleteStats{}, transactionError
+	}
+
+	return deleteStats, nil
 }
 
 func (repository *PostgresRepository) PublishDiagram(
@@ -207,7 +285,23 @@ func (repository *PostgresRepository) DeleteFigure(
 	ctx context.Context,
 	figureID string,
 ) error {
-	return domain.ErrNotImplemented
+	result, executeError := repository.executor(ctx).ExecContext(
+		ctx,
+		`
+UPDATE public.figures
+SET
+    deleted_at = now(),
+    updated_at = now()
+WHERE id = $1
+  AND deleted_at IS NULL
+`,
+		figureID,
+	)
+	if executeError != nil {
+		return mapDatabaseError("delete figure", executeError)
+	}
+
+	return ensureRowsAffected("delete figure", result)
 }
 
 func (repository *PostgresRepository) ListFigures(
@@ -365,22 +459,35 @@ RETURNING
 func (repository *PostgresRepository) DeleteDevice(
 	ctx context.Context,
 	deviceID string,
-) error {
-	query := `
-UPDATE devices.devices
-SET
-    deleted_at = now(),
-    updated_at = now()
-WHERE id = $1
-  AND deleted_at IS NULL
-`
+) (domain.DeviceDeleteStats, error) {
+	deleteStats := domain.DeviceDeleteStats{}
 
-	result, executeError := repository.executor(ctx).ExecContext(ctx, query, deviceID)
-	if executeError != nil {
-		return mapDatabaseError("delete device", executeError)
+	transactionError := repository.InTransaction(ctx, func(transactionContext context.Context) error {
+		var operationError error
+
+		deleteStats.TagsDeleted, operationError = repository.softDeleteTagsByDeviceID(
+			transactionContext,
+			deviceID,
+		)
+		if operationError != nil {
+			return operationError
+		}
+
+		deleteStats.DevicesDeleted, operationError = repository.softDeleteDeviceByID(
+			transactionContext,
+			deviceID,
+		)
+		if operationError != nil {
+			return operationError
+		}
+
+		return nil
+	})
+	if transactionError != nil {
+		return domain.DeviceDeleteStats{}, transactionError
 	}
 
-	return ensureRowsAffected("delete device", result)
+	return deleteStats, nil
 }
 
 func (repository *PostgresRepository) ListDevices(
@@ -1043,9 +1150,9 @@ func (repository *PostgresRepository) executor(ctx context.Context) sqlExecutor 
 }
 
 func ensureRowsAffected(operation string, result sql.Result) error {
-	rowsAffected, rowsError := result.RowsAffected()
+	rowsAffected, rowsError := countRowsAffected(operation, result)
 	if rowsError != nil {
-		return fmt.Errorf("%s rows affected: %w", operation, rowsError)
+		return rowsError
 	}
 
 	if rowsAffected == 0 {
@@ -1053,6 +1160,243 @@ func ensureRowsAffected(operation string, result sql.Result) error {
 	}
 
 	return nil
+}
+
+func countRowsAffected(operation string, result sql.Result) (int, error) {
+	rowsAffected, rowsError := result.RowsAffected()
+	if rowsError != nil {
+		return 0, fmt.Errorf("%s rows affected: %w", operation, rowsError)
+	}
+
+	return int(rowsAffected), nil
+}
+
+func countRequiredRowsAffected(operation string, result sql.Result) (int, error) {
+	rowsAffected, rowsError := countRowsAffected(operation, result)
+	if rowsError != nil {
+		return 0, rowsError
+	}
+
+	if rowsAffected == 0 {
+		return 0, domain.ErrNotFound
+	}
+
+	return rowsAffected, nil
+}
+
+func (repository *PostgresRepository) softDeleteMonitoringObjectByID(
+	ctx context.Context,
+	monitoringObjectID string,
+) (int, error) {
+	result, executeError := repository.executor(ctx).ExecContext(
+		ctx,
+		`
+UPDATE public.objects
+SET
+    deleted_at = now(),
+    updated_at = now()
+WHERE id = $1
+  AND deleted_at IS NULL
+`,
+		monitoringObjectID,
+	)
+	if executeError != nil {
+		return 0, mapDatabaseError("delete monitoring object", executeError)
+	}
+
+	return countRequiredRowsAffected("delete monitoring object", result)
+}
+
+func (repository *PostgresRepository) softDeleteDevicesByObjectID(
+	ctx context.Context,
+	monitoringObjectID string,
+) (int, error) {
+	result, executeError := repository.executor(ctx).ExecContext(
+		ctx,
+		`
+UPDATE devices.devices
+SET
+    deleted_at = now(),
+    updated_at = now()
+WHERE object_id = $1
+  AND deleted_at IS NULL
+`,
+		monitoringObjectID,
+	)
+	if executeError != nil {
+		return 0, mapDatabaseError("cascade delete devices by object", executeError)
+	}
+
+	return countRowsAffected("cascade delete devices by object", result)
+}
+
+func (repository *PostgresRepository) softDeleteTagsByObjectID(
+	ctx context.Context,
+	monitoringObjectID string,
+) (int, error) {
+	result, executeError := repository.executor(ctx).ExecContext(
+		ctx,
+		`
+UPDATE tags.tags
+SET
+    deleted_at = now(),
+    updated_at = now()
+WHERE deleted_at IS NULL
+  AND device_id IN (
+      SELECT id
+      FROM devices.devices
+      WHERE object_id = $1
+  )
+`,
+		monitoringObjectID,
+	)
+	if executeError != nil {
+		return 0, mapDatabaseError("cascade delete tags by object", executeError)
+	}
+
+	return countRowsAffected("cascade delete tags by object", result)
+}
+
+func (repository *PostgresRepository) softDeleteDiagramsByObjectID(
+	ctx context.Context,
+	monitoringObjectID string,
+) (int, error) {
+	result, executeError := repository.executor(ctx).ExecContext(
+		ctx,
+		`
+UPDATE public.mimic
+SET
+    deleted_at = now(),
+    updated_at = now()
+WHERE object_id = $1
+  AND deleted_at IS NULL
+`,
+		monitoringObjectID,
+	)
+	if executeError != nil {
+		return 0, mapDatabaseError("cascade delete diagrams by object", executeError)
+	}
+
+	return countRowsAffected("cascade delete diagrams by object", result)
+}
+
+func (repository *PostgresRepository) softDeleteFiguresByObjectID(
+	ctx context.Context,
+	monitoringObjectID string,
+) (int, error) {
+	result, executeError := repository.executor(ctx).ExecContext(
+		ctx,
+		`
+UPDATE public.figures
+SET
+    deleted_at = now(),
+    updated_at = now()
+WHERE deleted_at IS NULL
+  AND diagram_id IN (
+      SELECT id
+      FROM public.mimic
+      WHERE object_id = $1
+  )
+`,
+		monitoringObjectID,
+	)
+	if executeError != nil {
+		return 0, mapDatabaseError("cascade delete figures by object", executeError)
+	}
+
+	return countRowsAffected("cascade delete figures by object", result)
+}
+
+func (repository *PostgresRepository) softDeleteDeviceByID(
+	ctx context.Context,
+	deviceID string,
+) (int, error) {
+	result, executeError := repository.executor(ctx).ExecContext(
+		ctx,
+		`
+UPDATE devices.devices
+SET
+    deleted_at = now(),
+    updated_at = now()
+WHERE id = $1
+  AND deleted_at IS NULL
+`,
+		deviceID,
+	)
+	if executeError != nil {
+		return 0, mapDatabaseError("delete device", executeError)
+	}
+
+	return countRequiredRowsAffected("delete device", result)
+}
+
+func (repository *PostgresRepository) softDeleteTagsByDeviceID(
+	ctx context.Context,
+	deviceID string,
+) (int, error) {
+	result, executeError := repository.executor(ctx).ExecContext(
+		ctx,
+		`
+UPDATE tags.tags
+SET
+    deleted_at = now(),
+    updated_at = now()
+WHERE device_id = $1
+  AND deleted_at IS NULL
+`,
+		deviceID,
+	)
+	if executeError != nil {
+		return 0, mapDatabaseError("cascade delete tags by device", executeError)
+	}
+
+	return countRowsAffected("cascade delete tags by device", result)
+}
+
+func (repository *PostgresRepository) softDeleteDiagramByID(
+	ctx context.Context,
+	diagramID string,
+) (int, error) {
+	result, executeError := repository.executor(ctx).ExecContext(
+		ctx,
+		`
+UPDATE public.mimic
+SET
+    deleted_at = now(),
+    updated_at = now()
+WHERE id = $1
+  AND deleted_at IS NULL
+`,
+		diagramID,
+	)
+	if executeError != nil {
+		return 0, mapDatabaseError("delete diagram", executeError)
+	}
+
+	return countRequiredRowsAffected("delete diagram", result)
+}
+
+func (repository *PostgresRepository) softDeleteFiguresByDiagramID(
+	ctx context.Context,
+	diagramID string,
+) (int, error) {
+	result, executeError := repository.executor(ctx).ExecContext(
+		ctx,
+		`
+UPDATE public.figures
+SET
+    deleted_at = now(),
+    updated_at = now()
+WHERE diagram_id = $1
+  AND deleted_at IS NULL
+`,
+		diagramID,
+	)
+	if executeError != nil {
+		return 0, mapDatabaseError("cascade delete figures by diagram", executeError)
+	}
+
+	return countRowsAffected("cascade delete figures by diagram", result)
 }
 
 func buildSearchPattern(search string) string {
