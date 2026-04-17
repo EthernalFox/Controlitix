@@ -11,9 +11,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/EthernalFox/Controlitix/ms-editor/internal/config"
 	transporthttp "github.com/EthernalFox/Controlitix/ms-editor/internal/api/http"
+	"github.com/EthernalFox/Controlitix/ms-editor/internal/config"
 	"github.com/EthernalFox/Controlitix/ms-editor/internal/infrastructure/database"
+	eventkafka "github.com/EthernalFox/Controlitix/ms-editor/internal/infrastructure/kafka"
 	"github.com/EthernalFox/Controlitix/ms-editor/internal/infrastructure/repository"
 	"github.com/EthernalFox/Controlitix/ms-editor/internal/usecase"
 )
@@ -48,15 +49,34 @@ func main() {
 	}()
 
 	postgresRepository := repository.NewPostgresRepository(databaseConnection)
+	kafkaEventPublisher := eventkafka.NewKafkaEventPublisher(
+		applicationConfig.KafkaBrokers,
+		applicationConfig.KafkaTopic,
+		logger,
+	)
+	defer func() {
+		if closeError := kafkaEventPublisher.Close(); closeError != nil {
+			logger.Error("failed to close kafka publisher", "error", closeError)
+		}
+	}()
+
 	monitoringObjectUseCase := usecase.NewMonitoringObjectUseCase(postgresRepository)
 	diagramUseCase := usecase.NewDiagramUseCase(postgresRepository)
 	figureUseCase := usecase.NewFigureUseCase(postgresRepository)
+	deviceUseCase := usecase.NewDeviceUseCase(
+		postgresRepository,
+		postgresRepository,
+		postgresRepository,
+		kafkaEventPublisher,
+		logger,
+	)
 
 	httpServeMux := http.NewServeMux()
 	httpHandler := transporthttp.NewHandler(
 		monitoringObjectUseCase,
 		diagramUseCase,
 		figureUseCase,
+		deviceUseCase,
 	)
 	httpHandler.RegisterRoutes(httpServeMux)
 

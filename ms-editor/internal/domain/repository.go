@@ -92,3 +92,54 @@ type FigureRepository interface {
 		diagramID string,
 	) ([]Figure, error)
 }
+
+type DeviceRepository interface {
+	CreateDevice(
+		ctx context.Context,
+		device Device,
+	) (Device, error)
+	GetDevice(
+		ctx context.Context,
+		deviceID string,
+	) (DeviceWithParams, error)
+	UpdateDevice(
+		ctx context.Context,
+		deviceID string,
+		update DeviceUpdate,
+	) (Device, error)
+	DeleteDevice(
+		ctx context.Context,
+		deviceID string,
+	) error
+	ListDevicesByObject(
+		ctx context.Context,
+		objectID string,
+	) ([]Device, error)
+	AssignDeviceToObject(
+		ctx context.Context,
+		deviceID string,
+		objectID *string,
+	) (Device, error)
+}
+
+type DeviceParamsRepository interface {
+	UpsertDeviceParams(
+		ctx context.Context,
+		deviceID string,
+		settings json.RawMessage,
+	) (DeviceParams, error)
+	GetDeviceParams(
+		ctx context.Context,
+		deviceID string,
+	) (DeviceParams, error)
+}
+
+type DeviceTypeRepository interface {
+	ListDeviceTypes(
+		ctx context.Context,
+	) ([]DeviceType, error)
+	GetDeviceType(
+		ctx context.Context,
+		typeID int,
+	) (DeviceType, error)
+}

@@ -14,17 +14,20 @@ type Handler struct {
 	monitoringObjectUseCase *usecase.MonitoringObjectUseCase
 	diagramUseCase          *usecase.DiagramUseCase
 	figureUseCase           *usecase.FigureUseCase
+	deviceUseCase           *usecase.DeviceUseCase
 }
 
 func NewHandler(
 	monitoringObjectUseCase *usecase.MonitoringObjectUseCase,
 	diagramUseCase *usecase.DiagramUseCase,
 	figureUseCase *usecase.FigureUseCase,
+	deviceUseCase *usecase.DeviceUseCase,
 ) *Handler {
 	return &Handler{
 		monitoringObjectUseCase: monitoringObjectUseCase,
 		diagramUseCase:          diagramUseCase,
 		figureUseCase:           figureUseCase,
+		deviceUseCase:           deviceUseCase,
 	}
 }
 
@@ -34,6 +37,9 @@ func (handler *Handler) RegisterRoutes(httpServeMux *http.ServeMux) {
 	httpServeMux.HandleFunc("/objects/", handler.handleObjects)
 	httpServeMux.HandleFunc("/diagrams/", handler.handleDiagrams)
 	httpServeMux.HandleFunc("/figures/", handler.handleFigures)
+	httpServeMux.HandleFunc("/devices", handler.handleDevices)
+	httpServeMux.HandleFunc("/devices/", handler.handleDevices)
+	httpServeMux.HandleFunc("/device-types", handler.handleDeviceTypes)
 	registerSwaggerRoutes(httpServeMux)
 }
 
@@ -90,6 +96,18 @@ func (handler *Handler) handleObjects(
 				request,
 				pathSegments[0],
 			)
+		default:
+			writeError(responseWriter, http.StatusMethodNotAllowed, "method not allowed")
+		}
+		return
+	}
+
+	if len(pathSegments) == 2 && pathSegments[1] == "devices" {
+		switch request.Method {
+		case http.MethodPost:
+			handler.createDevice(responseWriter, request, &pathSegments[0])
+		case http.MethodGet:
+			handler.listDevicesByObject(responseWriter, request, pathSegments[0])
 		default:
 			writeError(responseWriter, http.StatusMethodNotAllowed, "method not allowed")
 		}
@@ -161,6 +179,70 @@ func (handler *Handler) handleFigures(
 	default:
 		writeError(responseWriter, http.StatusMethodNotAllowed, "method not allowed")
 	}
+}
+
+func (handler *Handler) handleDevices(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+) {
+	if request.URL.Path == "/devices" {
+		if request.Method != http.MethodPost {
+			writeError(responseWriter, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+
+		handler.createDevice(responseWriter, request, nil)
+		return
+	}
+
+	pathSegments := splitPath(strings.TrimPrefix(request.URL.Path, "/devices/"))
+	if len(pathSegments) == 1 {
+		switch request.Method {
+		case http.MethodGet:
+			handler.getDevice(responseWriter, request, pathSegments[0])
+		case http.MethodPatch:
+			handler.updateDevice(responseWriter, request, pathSegments[0])
+		case http.MethodDelete:
+			handler.deleteDevice(responseWriter, request, pathSegments[0])
+		default:
+			writeError(responseWriter, http.StatusMethodNotAllowed, "method not allowed")
+		}
+		return
+	}
+
+	if len(pathSegments) == 2 && pathSegments[1] == "config" {
+		if request.Method != http.MethodPost {
+			writeError(responseWriter, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+
+		handler.updateDeviceParams(responseWriter, request, pathSegments[0])
+		return
+	}
+
+	if len(pathSegments) == 2 && pathSegments[1] == "assign" {
+		if request.Method != http.MethodPatch {
+			writeError(responseWriter, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+
+		handler.assignDeviceToObject(responseWriter, request, pathSegments[0])
+		return
+	}
+
+	writeError(responseWriter, http.StatusNotFound, "not found")
+}
+
+func (handler *Handler) handleDeviceTypes(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+) {
+	if request.Method != http.MethodGet {
+		writeError(responseWriter, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	handler.listDeviceTypes(responseWriter, request)
 }
 
 func (handler *Handler) createMonitoringObject(
@@ -527,7 +609,240 @@ func (handler *Handler) deleteFigure(
 	writeJSON(responseWriter, http.StatusNoContent, nil)
 }
 
-func mapMonitoringObjectResponse(monitoringObject domain.MonitoringObject) monitoringObjectResponse {
+func (handler *Handler) createDevice(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	objectID *string,
+) {
+	requestPayload, decodeError := decodeJSONBody[createDeviceRequest](request.Body)
+	if decodeError != nil {
+		writeError(responseWriter, http.StatusBadRequest, "invalid json")
+		return
+	}
+
+	requestObjectID := requestPayload.ObjectID
+	if objectID != nil {
+		requestObjectID = objectID
+	}
+
+	deviceWithParams, useCaseError := handler.deviceUseCase.CreateDevice(
+		request.Context(),
+		requestObjectID,
+		requestPayload.TypeID,
+		requestPayload.Name,
+		requestPayload.Description,
+		requestPayload.Settings,
+	)
+	if useCaseError != nil {
+		writeDomainError(responseWriter, useCaseError)
+		return
+	}
+
+	writeJSON(
+		responseWriter,
+		http.StatusCreated,
+		mapDeviceWithParamsResponse(deviceWithParams),
+	)
+}
+
+func (handler *Handler) listDevicesByObject(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	objectID string,
+) {
+	devices, useCaseError := handler.deviceUseCase.ListDevicesByObject(
+		request.Context(),
+		objectID,
+	)
+	if useCaseError != nil {
+		writeDomainError(responseWriter, useCaseError)
+		return
+	}
+
+	responsePayload := make([]deviceResponse, 0, len(devices))
+	for _, device := range devices {
+		responsePayload = append(responsePayload, mapDeviceResponse(device, nil))
+	}
+
+	writeJSON(responseWriter, http.StatusOK, responsePayload)
+}
+
+func (handler *Handler) getDevice(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	deviceID string,
+) {
+	deviceWithParams, useCaseError := handler.deviceUseCase.GetDevice(
+		request.Context(),
+		deviceID,
+	)
+	if useCaseError != nil {
+		writeDomainError(responseWriter, useCaseError)
+		return
+	}
+
+	writeJSON(
+		responseWriter,
+		http.StatusOK,
+		mapDeviceWithParamsResponse(deviceWithParams),
+	)
+}
+
+func (handler *Handler) updateDevice(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	deviceID string,
+) {
+	requestPayload, decodeError := decodeJSONBody[updateDeviceRequest](request.Body)
+	if decodeError != nil {
+		writeError(responseWriter, http.StatusBadRequest, "invalid json")
+		return
+	}
+
+	_, useCaseError := handler.deviceUseCase.UpdateDevice(
+		request.Context(),
+		deviceID,
+		domain.DeviceUpdate{
+			TypeID:      requestPayload.TypeID,
+			Name:        requestPayload.Name,
+			Description: requestPayload.Description,
+		},
+	)
+	if useCaseError != nil {
+		writeDomainError(responseWriter, useCaseError)
+		return
+	}
+
+	deviceWithParams, getError := handler.deviceUseCase.GetDevice(
+		request.Context(),
+		deviceID,
+	)
+	if getError != nil {
+		writeDomainError(responseWriter, getError)
+		return
+	}
+
+	writeJSON(
+		responseWriter,
+		http.StatusOK,
+		mapDeviceWithParamsResponse(deviceWithParams),
+	)
+}
+
+func (handler *Handler) deleteDevice(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	deviceID string,
+) {
+	useCaseError := handler.deviceUseCase.DeleteDevice(request.Context(), deviceID)
+	if useCaseError != nil {
+		writeDomainError(responseWriter, useCaseError)
+		return
+	}
+
+	writeJSON(responseWriter, http.StatusNoContent, nil)
+}
+
+func (handler *Handler) updateDeviceParams(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	deviceID string,
+) {
+	requestPayload, decodeError := decodeJSONBody[deviceParamsRequest](request.Body)
+	if decodeError != nil {
+		writeError(responseWriter, http.StatusBadRequest, "invalid json")
+		return
+	}
+
+	_, useCaseError := handler.deviceUseCase.UpdateDeviceParams(
+		request.Context(),
+		deviceID,
+		requestPayload.Settings,
+	)
+	if useCaseError != nil {
+		writeDomainError(responseWriter, useCaseError)
+		return
+	}
+
+	deviceWithParams, getError := handler.deviceUseCase.GetDevice(
+		request.Context(),
+		deviceID,
+	)
+	if getError != nil {
+		writeDomainError(responseWriter, getError)
+		return
+	}
+
+	writeJSON(
+		responseWriter,
+		http.StatusOK,
+		mapDeviceWithParamsResponse(deviceWithParams),
+	)
+}
+
+func (handler *Handler) assignDeviceToObject(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	deviceID string,
+) {
+	requestPayload, decodeError := decodeJSONBody[assignDeviceRequest](request.Body)
+	if decodeError != nil {
+		writeError(responseWriter, http.StatusBadRequest, "invalid json")
+		return
+	}
+
+	_, useCaseError := handler.deviceUseCase.AssignDeviceToObject(
+		request.Context(),
+		deviceID,
+		requestPayload.ObjectID,
+	)
+	if useCaseError != nil {
+		writeDomainError(responseWriter, useCaseError)
+		return
+	}
+
+	deviceWithParams, getError := handler.deviceUseCase.GetDevice(
+		request.Context(),
+		deviceID,
+	)
+	if getError != nil {
+		writeDomainError(responseWriter, getError)
+		return
+	}
+
+	writeJSON(
+		responseWriter,
+		http.StatusOK,
+		mapDeviceWithParamsResponse(deviceWithParams),
+	)
+}
+
+func (handler *Handler) listDeviceTypes(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+) {
+	deviceTypes, useCaseError := handler.deviceUseCase.ListDeviceTypes(
+		request.Context(),
+	)
+	if useCaseError != nil {
+		writeDomainError(responseWriter, useCaseError)
+		return
+	}
+
+	responsePayload := make([]deviceTypeResponse, 0, len(deviceTypes))
+	for _, deviceType := range deviceTypes {
+		responsePayload = append(responsePayload, deviceTypeResponse{
+			ID:   deviceType.ID,
+			Name: deviceType.Name,
+		})
+	}
+
+	writeJSON(responseWriter, http.StatusOK, responsePayload)
+}
+
+func mapMonitoringObjectResponse(
+	monitoringObject domain.MonitoringObject,
+) monitoringObjectResponse {
 	return monitoringObjectResponse{
 		ID:          monitoringObject.ID,
 		Name:        monitoringObject.Name,
@@ -558,6 +873,31 @@ func mapFigureResponse(figure domain.Figure) figureResponse {
 		Parameters: figure.Parameters,
 		CreatedAt:  figure.CreatedAt,
 		UpdatedAt:  figure.UpdatedAt,
+	}
+}
+
+func mapDeviceWithParamsResponse(
+	deviceWithParams domain.DeviceWithParams,
+) deviceResponse {
+	var settings json.RawMessage
+	if deviceWithParams.Params != nil {
+		settings = deviceWithParams.Params.Settings
+	}
+
+	return mapDeviceResponse(deviceWithParams.Device, settings)
+}
+
+func mapDeviceResponse(device domain.Device, settings json.RawMessage) deviceResponse {
+	return deviceResponse{
+		ID:          device.ID,
+		ObjectID:    device.ObjectID,
+		TypeID:      device.TypeID,
+		TypeName:    device.TypeName,
+		Name:        device.Name,
+		Description: device.Description,
+		Settings:    settings,
+		CreatedAt:   device.CreatedAt,
+		UpdatedAt:   device.UpdatedAt,
 	}
 }
 

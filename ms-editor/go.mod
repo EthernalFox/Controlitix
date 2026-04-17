@@ -6,6 +6,7 @@ require (
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/joho/godotenv v1.5.1
 	github.com/pressly/goose/v3 v3.26.0
+	github.com/segmentio/kafka-go v0.4.47
 )
 
 require (

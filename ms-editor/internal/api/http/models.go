@@ -59,6 +59,45 @@ type figureResponse struct {
 	UpdatedAt  time.Time       `json:"updated_at"`
 }
 
+type createDeviceRequest struct {
+	ObjectID    *string         `json:"object_id"`
+	TypeID      int             `json:"type_id"`
+	Name        string          `json:"name"`
+	Description *string         `json:"description"`
+	Settings    json.RawMessage `json:"settings"`
+}
+
+type updateDeviceRequest struct {
+	TypeID      *int    `json:"type_id"`
+	Name        *string `json:"name"`
+	Description *string `json:"description"`
+}
+
+type assignDeviceRequest struct {
+	ObjectID *string `json:"object_id"`
+}
+
+type deviceParamsRequest struct {
+	Settings json.RawMessage `json:"settings"`
+}
+
+type deviceResponse struct {
+	ID          string          `json:"id"`
+	ObjectID    *string         `json:"object_id"`
+	TypeID      int             `json:"type_id"`
+	TypeName    string          `json:"type_name"`
+	Name        string          `json:"name"`
+	Description *string         `json:"description"`
+	Settings    json.RawMessage `json:"settings"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
+}
+
+type deviceTypeResponse struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
 type errorResponse struct {
 	Message string `json:"message"`
 }
