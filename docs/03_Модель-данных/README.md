@@ -31,12 +31,12 @@
 - **Типы ключей:** сущностные PK/FK — `uuid`; справочники (`device_type`, `data_types`, `units`) — `int`.
 - **Аудит полей:** `created_at`, `updated_at` (snake_case) во всех сущностных таблицах.
 - **1:1 таблицы** оформлены как `PK = FK`: `devices_params(device_id)`, `figure_params(figure_id)`, `tag_setpoints(param_id)`, `tag_scaling(param_id)`.
-- **Кросс-схемные FK:** разрешены. Конкретные связи:
-  - `devices.devices.object_id → public.objects.id` — FK.
+- **Кросс-схемные FK:** разрешены **внутри одного сервиса**. `ms-editor` владеет `public`, `devices`, `tags` — FK между ними допустимы. FK к `history`/`alarms`/`auth` (другие сервисы) — запрещены. Конкретные связи:
+  - `devices.devices.object_id → public.objects.id` — FK (**nullable**, устройство может быть не привязано к объекту).
   - `tags.tags.device_id → devices.devices.id` — FK.
   - `history.*` — **без FK** на `tags.tags` (высокая нагрузка, hypertable, целостность поддерживается приложением).
   - `alarms.*.tag_id` — **без FK** (логическая связь).
   - `public.figures.tag_id` — **без FK** (логическая связь).
-- **Мягкое удаление:** `deleted_at timestamptz null` применяется в `public.objects`, `public.mimic`, `public.figures`. Уникальные ограничения оформляются частичными индексами `where deleted_at is null`.
-- **Физическое удаление:** в MVP физически удаляются записи `devices.*` и `tags.*` (каскад через FK).
+- **Мягкое удаление:** `deleted_at timestamptz null` применяется в `public.objects`, `public.mimic`, `public.figures`, `devices.devices`, `tags.tags`. Уникальные ограничения оформляются частичными индексами `WHERE deleted_at IS NULL`.
+- **Каскадное мягкое удаление:** удаление объекта → каскадный soft delete устройств, тегов, мнемосхем, фигур. Удаление устройства → каскадный soft delete тегов.
 

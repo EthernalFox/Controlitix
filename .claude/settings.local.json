@@ -4,7 +4,14 @@
       "mcp__claude_ai_Figma__whoami",
       "mcp__claude_ai_Figma__create_new_file",
       "mcp__claude_ai_Figma__use_figma",
-      "WebSearch"
+      "WebSearch",
+      "Bash(mv specs/0002.draft.ms-editor-db-migrations.md specs/0002.ready.ms-editor-db-migrations.md)",
+      "Bash(mv specs/0003.draft.ms-editor-device-crud-kafka.md specs/0003.ready.ms-editor-device-crud-kafka.md)",
+      "Bash(mv specs/0004.draft.ms-editor-tag-crud.md specs/0004.ready.ms-editor-tag-crud.md)",
+      "Bash(mv specs/0005.draft.ms-editor-filtering-pagination.md specs/0005.ready.ms-editor-filtering-pagination.md)",
+      "Bash(mv specs/0006.draft.ms-editor-soft-delete-cascade.md specs/0006.ready.ms-editor-soft-delete-cascade.md)",
+      "Bash(ls -la *.md)",
+      "Bash(ls *.md)"
     ]
   },
   "enabledPlugins": {

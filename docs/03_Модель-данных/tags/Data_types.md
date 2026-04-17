@@ -3,10 +3,13 @@
 Назначение: справочник типов данных тегов.
 
 Колонки
-- id: int, PK
-- type: text, NOT NULL, UNIQUE (например: bool, int16, uint16, float32, string)
+- id: serial, PK
+- name: text, NOT NULL, UNIQUE
+
+Seed-данные MVP:
+- `bool`, `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `float32`, `float64`, `string`
 
 Индексы/ограничения
 - PK(id)
-- UNIQUE(type)
+- UNIQUE(name)
 
