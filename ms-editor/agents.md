@@ -2,14 +2,17 @@
 
 ## Purpose
 
-- Configure monitoring objects, diagrams, figures, and publish changes for editor-ui.
-- Owns the `public` schema and its migrations.
+- Configure monitoring objects, devices, tags, diagrams, figures and publish changes for editor-ui.
+- Also owns `devices` and `tags` schemas for device/tag configuration.
+- Publishes `config.changed` events to Kafka on entity mutations.
+- Owns three DB schemas: `public`, `devices`, `tags`.
 
 ## Stack
 
-- Go 1.22 (latest LTS).
+- Go 1.24 (see `go.mod`).
 - Postgres as primary storage.
 - Goose for migrations.
+- Kafka (segmentio/kafka-go) for event publishing.
 - Structured logging via `slog`.
 
 ## Architecture (Clean Architecture)
@@ -28,9 +31,11 @@
 
 ## Database rules
 
-- Cross-schema foreign keys are forbidden as an architectural rule.
-- The service owns tables in `public` and must not create FK constraints to other schemas.
+- `ms-editor` owns three schemas: `public`, `devices`, `tags`.
+- Cross-schema FKs between these three are allowed.
+- FKs to schemas owned by other services (e.g. `history`, `alarms`, `auth`) are forbidden.
 - All schema changes go through Goose migrations in `migrations/`.
+- Do not modify migration files that have already been applied — add a new migration instead.
 
 ## API
 
