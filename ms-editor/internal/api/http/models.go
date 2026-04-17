@@ -166,6 +166,13 @@ type unitResponse struct {
 	Category string `json:"category"`
 }
 
+type listResponse struct {
+	Items  any `json:"items"`
+	Total  int `json:"total"`
+	Offset int `json:"offset"`
+	Limit  int `json:"limit"`
+}
+
 type errorResponse struct {
 	Message string `json:"message"`
 }

@@ -74,16 +74,13 @@ func (useCase *FigureUseCase) DeleteFigure(
 	)
 }
 
-func (useCase *FigureUseCase) ListFiguresByDiagram(
+func (useCase *FigureUseCase) ListFigures(
 	ctx context.Context,
-	diagramID string,
-) ([]domain.Figure, error) {
-	if strings.TrimSpace(diagramID) == "" {
-		return nil, domain.ErrInvalidInput
+	query domain.FigureListQuery,
+) (domain.ListResult[domain.Figure], error) {
+	if strings.TrimSpace(query.DiagramID) == "" {
+		return domain.ListResult[domain.Figure]{}, domain.ErrInvalidInput
 	}
 
-	return useCase.figureRepository.ListFiguresByDiagram(
-		ctx,
-		diagramID,
-	)
+	return useCase.figureRepository.ListFigures(ctx, query)
 }

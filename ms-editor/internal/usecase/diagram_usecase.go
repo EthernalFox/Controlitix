@@ -99,16 +99,13 @@ func (useCase *DiagramUseCase) PublishDiagram(
 	)
 }
 
-func (useCase *DiagramUseCase) ListDiagramsByMonitoringObject(
+func (useCase *DiagramUseCase) ListDiagrams(
 	ctx context.Context,
-	monitoringObjectID string,
-) ([]domain.Diagram, error) {
-	if strings.TrimSpace(monitoringObjectID) == "" {
-		return nil, domain.ErrInvalidInput
+	query domain.DiagramListQuery,
+) (domain.ListResult[domain.Diagram], error) {
+	if query.ObjectID != nil && strings.TrimSpace(*query.ObjectID) == "" {
+		return domain.ListResult[domain.Diagram]{}, domain.ErrInvalidInput
 	}
 
-	return useCase.diagramRepository.ListDiagramsByMonitoringObject(
-		ctx,
-		monitoringObjectID,
-	)
+	return useCase.diagramRepository.ListDiagrams(ctx, query)
 }

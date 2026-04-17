@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/EthernalFox/Controlitix/ms-editor/internal/domain"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -96,8 +97,29 @@ func (repository *PostgresRepository) DeleteMonitoringObject(
 
 func (repository *PostgresRepository) ListMonitoringObjects(
 	ctx context.Context,
-) ([]domain.MonitoringObject, error) {
-	return nil, domain.ErrNotImplemented
+	query domain.ObjectListQuery,
+) (domain.ListResult[domain.MonitoringObject], error) {
+	searchPattern := buildSearchPattern(query.Search)
+	rows, queryError := repository.executor(ctx).QueryContext(
+		ctx,
+		`
+SELECT id, name, description, created_at, updated_at, COUNT(*) OVER()
+FROM public.objects
+WHERE deleted_at IS NULL
+  AND ($1 = '' OR name ILIKE $1 ESCAPE '\')
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`,
+		searchPattern,
+		query.Limit,
+		query.Offset,
+	)
+	if queryError != nil {
+		return domain.ListResult[domain.MonitoringObject]{}, mapDatabaseError("list monitoring objects", queryError)
+	}
+	defer rows.Close()
+
+	return scanMonitoringObjectList(rows, query.Offset, query.Limit)
 }
 
 func (repository *PostgresRepository) CreateDiagram(
@@ -136,11 +158,33 @@ func (repository *PostgresRepository) PublishDiagram(
 	return domain.Diagram{}, domain.ErrNotImplemented
 }
 
-func (repository *PostgresRepository) ListDiagramsByMonitoringObject(
+func (repository *PostgresRepository) ListDiagrams(
 	ctx context.Context,
-	monitoringObjectID string,
-) ([]domain.Diagram, error) {
-	return nil, domain.ErrNotImplemented
+	query domain.DiagramListQuery,
+) (domain.ListResult[domain.Diagram], error) {
+	searchPattern := buildSearchPattern(query.Search)
+	rows, queryError := repository.executor(ctx).QueryContext(
+		ctx,
+		`
+SELECT id, object_id, name, description, published_at, created_at, updated_at, COUNT(*) OVER()
+FROM public.mimic
+WHERE deleted_at IS NULL
+  AND ($1::uuid IS NULL OR object_id = $1)
+  AND ($2 = '' OR COALESCE(name, '') ILIKE $2 ESCAPE '\')
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $4
+`,
+		query.ObjectID,
+		searchPattern,
+		query.Limit,
+		query.Offset,
+	)
+	if queryError != nil {
+		return domain.ListResult[domain.Diagram]{}, mapDatabaseError("list diagrams", queryError)
+	}
+	defer rows.Close()
+
+	return scanDiagramList(rows, query.Offset, query.Limit)
 }
 
 func (repository *PostgresRepository) CreateFigures(
@@ -166,11 +210,33 @@ func (repository *PostgresRepository) DeleteFigure(
 	return domain.ErrNotImplemented
 }
 
-func (repository *PostgresRepository) ListFiguresByDiagram(
+func (repository *PostgresRepository) ListFigures(
 	ctx context.Context,
-	diagramID string,
-) ([]domain.Figure, error) {
-	return nil, domain.ErrNotImplemented
+	query domain.FigureListQuery,
+) (domain.ListResult[domain.Figure], error) {
+	rows, queryError := repository.executor(ctx).QueryContext(
+		ctx,
+		`
+SELECT id, diagram_id, tag_id, type, params, created_at, updated_at, COUNT(*) OVER()
+FROM public.figures
+LEFT JOIN public.figure_params ON figure_params.figure_id = public.figures.id
+WHERE deleted_at IS NULL
+  AND diagram_id = $1
+  AND ($2 = '' OR type = $2)
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $4
+`,
+		query.DiagramID,
+		stringValueOrEmpty(query.TypeFilter),
+		query.Limit,
+		query.Offset,
+	)
+	if queryError != nil {
+		return domain.ListResult[domain.Figure]{}, mapDatabaseError("list figures", queryError)
+	}
+	defer rows.Close()
+
+	return scanFigureList(rows, query.Offset, query.Limit)
 }
 
 func (repository *PostgresRepository) CreateDevice(
@@ -218,7 +284,7 @@ func (repository *PostgresRepository) GetDevice(
 	ctx context.Context,
 	deviceID string,
 ) (domain.DeviceWithParams, error) {
-	query := `
+	querySQL := `
 SELECT
     d.id,
     d.object_id,
@@ -240,7 +306,7 @@ WHERE d.id = $1
 `
 
 	deviceWithParams, queryError := scanDeviceWithParams(
-		repository.executor(ctx).QueryRowContext(ctx, query, deviceID),
+		repository.executor(ctx).QueryRowContext(ctx, querySQL, deviceID),
 	)
 	if queryError != nil {
 		return domain.DeviceWithParams{}, mapDatabaseError("get device", queryError)
@@ -317,11 +383,12 @@ WHERE id = $1
 	return ensureRowsAffected("delete device", result)
 }
 
-func (repository *PostgresRepository) ListDevicesByObject(
+func (repository *PostgresRepository) ListDevices(
 	ctx context.Context,
-	objectID string,
-) ([]domain.Device, error) {
-	query := `
+	query domain.DeviceListQuery,
+) (domain.ListResult[domain.Device], error) {
+	searchPattern := buildSearchPattern(query.Search)
+	querySQL := `
 SELECT
     d.id,
     d.object_id,
@@ -331,35 +398,73 @@ SELECT
     d.description,
     d.deleted_at,
     d.created_at,
-    d.updated_at
+    d.updated_at,
+    COUNT(*) OVER()
 FROM devices.devices d
 JOIN devices.device_type dt ON dt.id = d.type_id
-WHERE d.object_id = $1
-  AND d.deleted_at IS NULL
-ORDER BY d.created_at, d.id
+WHERE d.deleted_at IS NULL
+  AND ($1::uuid IS NULL OR d.object_id = $1)
+  AND ($2::int IS NULL OR d.type_id = $2)
+  AND ($3 = '' OR d.name ILIKE $3 ESCAPE '\')
+ORDER BY d.created_at DESC
+LIMIT $4 OFFSET $5
 `
 
-	rows, queryError := repository.executor(ctx).QueryContext(ctx, query, objectID)
+	rows, queryError := repository.executor(ctx).QueryContext(
+		ctx,
+		querySQL,
+		query.ObjectID,
+		query.TypeID,
+		searchPattern,
+		query.Limit,
+		query.Offset,
+	)
 	if queryError != nil {
-		return nil, mapDatabaseError("list devices by object", queryError)
+		return domain.ListResult[domain.Device]{}, mapDatabaseError("list devices", queryError)
 	}
 	defer rows.Close()
 
-	devices := make([]domain.Device, 0)
-	for rows.Next() {
-		device, scanError := scanDevice(rows)
-		if scanError != nil {
-			return nil, mapDatabaseError("list devices by object", scanError)
-		}
+	return scanDeviceList(rows, query.Offset, query.Limit)
+}
 
-		devices = append(devices, device)
+func (repository *PostgresRepository) ListTags(
+	ctx context.Context,
+	query domain.TagListQuery,
+) (domain.ListResult[domain.Tag], error) {
+	searchPattern := buildSearchPattern(query.Search)
+	rows, queryError := repository.executor(ctx).QueryContext(
+		ctx,
+		`
+SELECT
+    t.id,
+    t.device_id,
+    t.name,
+    t.description,
+    t.deleted_at,
+    t.created_at,
+    t.updated_at,
+    COUNT(*) OVER()
+FROM tags.tags t
+LEFT JOIN tags.tag_params tp ON tp.tag_id = t.id
+WHERE t.deleted_at IS NULL
+  AND ($1::uuid IS NULL OR t.device_id = $1)
+  AND ($2::int IS NULL OR tp.data_type_id = $2)
+  AND ($3 = '' OR t.name ILIKE $3 ESCAPE '\')
+ORDER BY t.created_at DESC
+LIMIT $4 OFFSET $5
+`,
+		query.DeviceID,
+		query.DataTypeID,
+		searchPattern,
+		query.Limit,
+		query.Offset,
+	)
+	if queryError != nil {
+		return domain.ListResult[domain.Tag]{}, mapDatabaseError("list tags", queryError)
 	}
+	defer rows.Close()
 
-	if rowsError := rows.Err(); rowsError != nil {
-		return nil, fmt.Errorf("list devices by object: %w", rowsError)
-	}
-
-	return devices, nil
+	return scanTagList(rows, query.Offset, query.Limit)
 }
 
 func (repository *PostgresRepository) AssignDeviceToObject(
@@ -634,41 +739,6 @@ WHERE id = $1
 	}
 
 	return ensureRowsAffected("delete tag", result)
-}
-
-func (repository *PostgresRepository) ListTagsByDevice(
-	ctx context.Context,
-	deviceID string,
-) ([]domain.Tag, error) {
-	query := `
-SELECT id, device_id, name, description, deleted_at, created_at, updated_at
-FROM tags.tags
-WHERE device_id = $1
-  AND deleted_at IS NULL
-ORDER BY created_at, id
-`
-
-	rows, queryError := repository.executor(ctx).QueryContext(ctx, query, deviceID)
-	if queryError != nil {
-		return nil, mapDatabaseError("list tags by device", queryError)
-	}
-	defer rows.Close()
-
-	tags := make([]domain.Tag, 0)
-	for rows.Next() {
-		tag, scanError := scanTag(rows)
-		if scanError != nil {
-			return nil, mapDatabaseError("list tags by device", scanError)
-		}
-
-		tags = append(tags, tag)
-	}
-
-	if rowsError := rows.Err(); rowsError != nil {
-		return nil, fmt.Errorf("list tags by device: %w", rowsError)
-	}
-
-	return tags, nil
 }
 
 func (repository *PostgresRepository) UpsertTagParams(
@@ -983,6 +1053,304 @@ func ensureRowsAffected(operation string, result sql.Result) error {
 	}
 
 	return nil
+}
+
+func buildSearchPattern(search string) string {
+	trimmedSearch := strings.TrimSpace(search)
+	if trimmedSearch == "" {
+		return ""
+	}
+
+	escapedSearch := strings.NewReplacer(
+		"\\", "\\\\",
+		"%", "\\%",
+		"_", "\\_",
+	).Replace(trimmedSearch)
+
+	return "%" + escapedSearch + "%"
+}
+
+func stringValueOrEmpty(value *string) string {
+	if value == nil {
+		return ""
+	}
+
+	return *value
+}
+
+func scanMonitoringObjectList(
+	rows *sql.Rows,
+	offset int,
+	limit int,
+) (domain.ListResult[domain.MonitoringObject], error) {
+	items := make([]domain.MonitoringObject, 0)
+	total := 0
+
+	for rows.Next() {
+		var (
+			item        domain.MonitoringObject
+			description sql.NullString
+			rowTotal    int64
+		)
+
+		scanError := rows.Scan(
+			&item.ID,
+			&item.Name,
+			&description,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+			&rowTotal,
+		)
+		if scanError != nil {
+			return domain.ListResult[domain.MonitoringObject]{}, fmt.Errorf("scan monitoring object: %w", scanError)
+		}
+
+		if description.Valid {
+			item.Description = &description.String
+		}
+
+		total = int(rowTotal)
+		items = append(items, item)
+	}
+
+	if rowsError := rows.Err(); rowsError != nil {
+		return domain.ListResult[domain.MonitoringObject]{}, fmt.Errorf("list monitoring objects: %w", rowsError)
+	}
+
+	return domain.ListResult[domain.MonitoringObject]{
+		Items:  items,
+		Total:  total,
+		Offset: offset,
+		Limit:  limit,
+	}, nil
+}
+
+func scanDiagramList(
+	rows *sql.Rows,
+	offset int,
+	limit int,
+) (domain.ListResult[domain.Diagram], error) {
+	items := make([]domain.Diagram, 0)
+	total := 0
+
+	for rows.Next() {
+		var (
+			item        domain.Diagram
+			name        sql.NullString
+			description sql.NullString
+			publishedAt sql.NullTime
+			rowTotal    int64
+		)
+
+		scanError := rows.Scan(
+			&item.ID,
+			&item.ObjectID,
+			&name,
+			&description,
+			&publishedAt,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+			&rowTotal,
+		)
+		if scanError != nil {
+			return domain.ListResult[domain.Diagram]{}, fmt.Errorf("scan diagram: %w", scanError)
+		}
+
+		if name.Valid {
+			item.Name = &name.String
+		}
+
+		if description.Valid {
+			item.Description = &description.String
+		}
+
+		if publishedAt.Valid {
+			item.PublishedAt = &publishedAt.Time
+		}
+
+		total = int(rowTotal)
+		items = append(items, item)
+	}
+
+	if rowsError := rows.Err(); rowsError != nil {
+		return domain.ListResult[domain.Diagram]{}, fmt.Errorf("list diagrams: %w", rowsError)
+	}
+
+	return domain.ListResult[domain.Diagram]{
+		Items:  items,
+		Total:  total,
+		Offset: offset,
+		Limit:  limit,
+	}, nil
+}
+
+func scanFigureList(
+	rows *sql.Rows,
+	offset int,
+	limit int,
+) (domain.ListResult[domain.Figure], error) {
+	items := make([]domain.Figure, 0)
+	total := 0
+
+	for rows.Next() {
+		var (
+			item     domain.Figure
+			tagID    sql.NullString
+			params   []byte
+			rowTotal int64
+		)
+
+		scanError := rows.Scan(
+			&item.ID,
+			&item.DiagramID,
+			&tagID,
+			&item.FigureType,
+			&params,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+			&rowTotal,
+		)
+		if scanError != nil {
+			return domain.ListResult[domain.Figure]{}, fmt.Errorf("scan figure: %w", scanError)
+		}
+
+		if tagID.Valid {
+			item.TagID = &tagID.String
+		}
+
+		if params != nil {
+			item.Parameters = append(json.RawMessage(nil), params...)
+		}
+
+		total = int(rowTotal)
+		items = append(items, item)
+	}
+
+	if rowsError := rows.Err(); rowsError != nil {
+		return domain.ListResult[domain.Figure]{}, fmt.Errorf("list figures: %w", rowsError)
+	}
+
+	return domain.ListResult[domain.Figure]{
+		Items:  items,
+		Total:  total,
+		Offset: offset,
+		Limit:  limit,
+	}, nil
+}
+
+func scanDeviceList(
+	rows *sql.Rows,
+	offset int,
+	limit int,
+) (domain.ListResult[domain.Device], error) {
+	items := make([]domain.Device, 0)
+	total := 0
+
+	for rows.Next() {
+		var (
+			item        domain.Device
+			objectID    sql.NullString
+			description sql.NullString
+			deletedAt   sql.NullTime
+			rowTotal    int64
+		)
+
+		scanError := rows.Scan(
+			&item.ID,
+			&objectID,
+			&item.TypeID,
+			&item.TypeName,
+			&item.Name,
+			&description,
+			&deletedAt,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+			&rowTotal,
+		)
+		if scanError != nil {
+			return domain.ListResult[domain.Device]{}, fmt.Errorf("scan device: %w", scanError)
+		}
+
+		if objectID.Valid {
+			item.ObjectID = &objectID.String
+		}
+
+		if description.Valid {
+			item.Description = &description.String
+		}
+
+		if deletedAt.Valid {
+			item.DeletedAt = &deletedAt.Time
+		}
+
+		total = int(rowTotal)
+		items = append(items, item)
+	}
+
+	if rowsError := rows.Err(); rowsError != nil {
+		return domain.ListResult[domain.Device]{}, fmt.Errorf("list devices: %w", rowsError)
+	}
+
+	return domain.ListResult[domain.Device]{
+		Items:  items,
+		Total:  total,
+		Offset: offset,
+		Limit:  limit,
+	}, nil
+}
+
+func scanTagList(
+	rows *sql.Rows,
+	offset int,
+	limit int,
+) (domain.ListResult[domain.Tag], error) {
+	items := make([]domain.Tag, 0)
+	total := 0
+
+	for rows.Next() {
+		var (
+			item        domain.Tag
+			description sql.NullString
+			deletedAt   sql.NullTime
+			rowTotal    int64
+		)
+
+		scanError := rows.Scan(
+			&item.ID,
+			&item.DeviceID,
+			&item.Name,
+			&description,
+			&deletedAt,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+			&rowTotal,
+		)
+		if scanError != nil {
+			return domain.ListResult[domain.Tag]{}, fmt.Errorf("scan tag: %w", scanError)
+		}
+
+		if description.Valid {
+			item.Description = &description.String
+		}
+
+		if deletedAt.Valid {
+			item.DeletedAt = &deletedAt.Time
+		}
+
+		total = int(rowTotal)
+		items = append(items, item)
+	}
+
+	if rowsError := rows.Err(); rowsError != nil {
+		return domain.ListResult[domain.Tag]{}, fmt.Errorf("list tags: %w", rowsError)
+	}
+
+	return domain.ListResult[domain.Tag]{
+		Items:  items,
+		Total:  total,
+		Offset: offset,
+		Limit:  limit,
+	}, nil
 }
 
 func scanDevice(scanner rowScanner) (domain.Device, error) {

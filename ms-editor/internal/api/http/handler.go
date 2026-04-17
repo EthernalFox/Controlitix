@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/EthernalFox/Controlitix/ms-editor/internal/domain"
@@ -43,6 +44,7 @@ func (handler *Handler) RegisterRoutes(httpServeMux *http.ServeMux) {
 	httpServeMux.HandleFunc("/devices", handler.handleDevices)
 	httpServeMux.HandleFunc("/devices/", handler.handleDevices)
 	httpServeMux.HandleFunc("/device-types", handler.handleDeviceTypes)
+	httpServeMux.HandleFunc("/tags", handler.handleTags)
 	httpServeMux.HandleFunc("/tags/", handler.handleTags)
 	httpServeMux.HandleFunc("/data-types", handler.handleDataTypes)
 	httpServeMux.HandleFunc("/units", handler.handleUnits)
@@ -113,7 +115,7 @@ func (handler *Handler) handleObjects(
 		case http.MethodPost:
 			handler.createDevice(responseWriter, request, &pathSegments[0])
 		case http.MethodGet:
-			handler.listDevicesByObject(responseWriter, request, pathSegments[0])
+			handler.listDevices(responseWriter, request, &pathSegments[0])
 		default:
 			writeError(responseWriter, http.StatusMethodNotAllowed, "method not allowed")
 		}
@@ -192,12 +194,14 @@ func (handler *Handler) handleDevices(
 	request *http.Request,
 ) {
 	if request.URL.Path == "/devices" {
-		if request.Method != http.MethodPost {
+		switch request.Method {
+		case http.MethodPost:
+			handler.createDevice(responseWriter, request, nil)
+		case http.MethodGet:
+			handler.listDevices(responseWriter, request, nil)
+		default:
 			writeError(responseWriter, http.StatusMethodNotAllowed, "method not allowed")
-			return
 		}
-
-		handler.createDevice(responseWriter, request, nil)
 		return
 	}
 
@@ -241,7 +245,7 @@ func (handler *Handler) handleDevices(
 		case http.MethodPost:
 			handler.createTag(responseWriter, request, pathSegments[0])
 		case http.MethodGet:
-			handler.listTagsByDevice(responseWriter, request, pathSegments[0])
+			handler.listTags(responseWriter, request, &pathSegments[0])
 		default:
 			writeError(responseWriter, http.StatusMethodNotAllowed, "method not allowed")
 		}
@@ -267,6 +271,16 @@ func (handler *Handler) handleTags(
 	responseWriter http.ResponseWriter,
 	request *http.Request,
 ) {
+	if request.URL.Path == "/tags" {
+		if request.Method != http.MethodGet {
+			writeError(responseWriter, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+
+		handler.listTags(responseWriter, request, nil)
+		return
+	}
+
 	pathSegments := splitPath(strings.TrimPrefix(request.URL.Path, "/tags/"))
 	if len(pathSegments) == 1 {
 		switch request.Method {
@@ -371,23 +385,35 @@ func (handler *Handler) listMonitoringObjects(
 	responseWriter http.ResponseWriter,
 	request *http.Request,
 ) {
+	query, parseError := parseObjectListQuery(request)
+	if parseError != nil {
+		writeError(responseWriter, http.StatusBadRequest, parseError.Error())
+		return
+	}
+
 	monitoringObjects, useCaseError := handler.monitoringObjectUseCase.ListMonitoringObjects(
 		request.Context(),
+		query,
 	)
 	if useCaseError != nil {
 		writeDomainError(responseWriter, useCaseError)
 		return
 	}
 
-	responsePayload := make([]monitoringObjectResponse, 0, len(monitoringObjects))
-	for _, monitoringObject := range monitoringObjects {
+	responsePayload := make([]monitoringObjectResponse, 0, len(monitoringObjects.Items))
+	for _, monitoringObject := range monitoringObjects.Items {
 		responsePayload = append(
 			responsePayload,
 			mapMonitoringObjectResponse(monitoringObject),
 		)
 	}
 
-	writeJSON(responseWriter, http.StatusOK, responsePayload)
+	writeJSON(responseWriter, http.StatusOK, mapListResponse(
+		responsePayload,
+		monitoringObjects.Total,
+		monitoringObjects.Offset,
+		monitoringObjects.Limit,
+	))
 }
 
 func (handler *Handler) getMonitoringObject(
@@ -482,21 +508,32 @@ func (handler *Handler) listDiagramsByMonitoringObject(
 	request *http.Request,
 	monitoringObjectID string,
 ) {
-	diagrams, useCaseError := handler.diagramUseCase.ListDiagramsByMonitoringObject(
+	query, parseError := parseDiagramListQuery(request, &monitoringObjectID)
+	if parseError != nil {
+		writeError(responseWriter, http.StatusBadRequest, parseError.Error())
+		return
+	}
+
+	diagrams, useCaseError := handler.diagramUseCase.ListDiagrams(
 		request.Context(),
-		monitoringObjectID,
+		query,
 	)
 	if useCaseError != nil {
 		writeDomainError(responseWriter, useCaseError)
 		return
 	}
 
-	responsePayload := make([]diagramResponse, 0, len(diagrams))
-	for _, diagram := range diagrams {
+	responsePayload := make([]diagramResponse, 0, len(diagrams.Items))
+	for _, diagram := range diagrams.Items {
 		responsePayload = append(responsePayload, mapDiagramResponse(diagram))
 	}
 
-	writeJSON(responseWriter, http.StatusOK, responsePayload)
+	writeJSON(responseWriter, http.StatusOK, mapListResponse(
+		responsePayload,
+		diagrams.Total,
+		diagrams.Offset,
+		diagrams.Limit,
+	))
 }
 
 func (handler *Handler) getDiagram(
@@ -633,21 +670,32 @@ func (handler *Handler) listFiguresByDiagram(
 	request *http.Request,
 	diagramID string,
 ) {
-	figures, useCaseError := handler.figureUseCase.ListFiguresByDiagram(
+	query, parseError := parseFigureListQuery(request, diagramID)
+	if parseError != nil {
+		writeError(responseWriter, http.StatusBadRequest, parseError.Error())
+		return
+	}
+
+	figures, useCaseError := handler.figureUseCase.ListFigures(
 		request.Context(),
-		diagramID,
+		query,
 	)
 	if useCaseError != nil {
 		writeDomainError(responseWriter, useCaseError)
 		return
 	}
 
-	responsePayload := make([]figureResponse, 0, len(figures))
-	for _, figure := range figures {
+	responsePayload := make([]figureResponse, 0, len(figures.Items))
+	for _, figure := range figures.Items {
 		responsePayload = append(responsePayload, mapFigureResponse(figure))
 	}
 
-	writeJSON(responseWriter, http.StatusOK, responsePayload)
+	writeJSON(responseWriter, http.StatusOK, mapListResponse(
+		responsePayload,
+		figures.Total,
+		figures.Offset,
+		figures.Limit,
+	))
 }
 
 func (handler *Handler) updateFigure(
@@ -743,26 +791,37 @@ func (handler *Handler) createDevice(
 	)
 }
 
-func (handler *Handler) listDevicesByObject(
+func (handler *Handler) listDevices(
 	responseWriter http.ResponseWriter,
 	request *http.Request,
-	objectID string,
+	objectID *string,
 ) {
-	devices, useCaseError := handler.deviceUseCase.ListDevicesByObject(
+	query, parseError := parseDeviceListQuery(request, objectID)
+	if parseError != nil {
+		writeError(responseWriter, http.StatusBadRequest, parseError.Error())
+		return
+	}
+
+	devices, useCaseError := handler.deviceUseCase.ListDevices(
 		request.Context(),
-		objectID,
+		query,
 	)
 	if useCaseError != nil {
 		writeDomainError(responseWriter, useCaseError)
 		return
 	}
 
-	responsePayload := make([]deviceResponse, 0, len(devices))
-	for _, device := range devices {
+	responsePayload := make([]deviceResponse, 0, len(devices.Items))
+	for _, device := range devices.Items {
 		responsePayload = append(responsePayload, mapDeviceResponse(device, nil))
 	}
 
-	writeJSON(responseWriter, http.StatusOK, responsePayload)
+	writeJSON(responseWriter, http.StatusOK, mapListResponse(
+		responsePayload,
+		devices.Total,
+		devices.Offset,
+		devices.Limit,
+	))
 }
 
 func (handler *Handler) getDevice(
@@ -966,26 +1025,37 @@ func (handler *Handler) createTag(
 	writeJSON(responseWriter, http.StatusCreated, mapTagFullResponse(tagFull))
 }
 
-func (handler *Handler) listTagsByDevice(
+func (handler *Handler) listTags(
 	responseWriter http.ResponseWriter,
 	request *http.Request,
-	deviceID string,
+	deviceID *string,
 ) {
-	tags, useCaseError := handler.tagUseCase.ListTagsByDevice(
+	query, parseError := parseTagListQuery(request, deviceID)
+	if parseError != nil {
+		writeError(responseWriter, http.StatusBadRequest, parseError.Error())
+		return
+	}
+
+	tags, useCaseError := handler.tagUseCase.ListTags(
 		request.Context(),
-		deviceID,
+		query,
 	)
 	if useCaseError != nil {
 		writeDomainError(responseWriter, useCaseError)
 		return
 	}
 
-	responsePayload := make([]tagResponse, 0, len(tags))
-	for _, tag := range tags {
+	responsePayload := make([]tagResponse, 0, len(tags.Items))
+	for _, tag := range tags.Items {
 		responsePayload = append(responsePayload, mapTagResponse(tag))
 	}
 
-	writeJSON(responseWriter, http.StatusOK, responsePayload)
+	writeJSON(responseWriter, http.StatusOK, mapListResponse(
+		responsePayload,
+		tags.Total,
+		tags.Offset,
+		tags.Limit,
+	))
 }
 
 func (handler *Handler) getTag(
@@ -1416,6 +1486,178 @@ func intPointer(value int) *int {
 }
 
 func jsonRawMessagePointer(value json.RawMessage) *json.RawMessage {
+	return &value
+}
+
+func mapListResponse(items any, total int, offset int, limit int) listResponse {
+	return listResponse{
+		Items:  items,
+		Total:  total,
+		Offset: offset,
+		Limit:  limit,
+	}
+}
+
+func parseObjectListQuery(request *http.Request) (domain.ObjectListQuery, error) {
+	pagination, parseError := parsePagination(request)
+	if parseError != nil {
+		return domain.ObjectListQuery{}, parseError
+	}
+
+	return domain.ObjectListQuery{
+		Pagination: pagination,
+		Search:     request.URL.Query().Get("search"),
+	}, nil
+}
+
+func parseDeviceListQuery(
+	request *http.Request,
+	pathObjectID *string,
+) (domain.DeviceListQuery, error) {
+	pagination, parseError := parsePagination(request)
+	if parseError != nil {
+		return domain.DeviceListQuery{}, parseError
+	}
+
+	objectID := pathObjectID
+	if objectID == nil {
+		objectID = stringPointerOrNil(request.URL.Query().Get("object_id"))
+	}
+
+	typeID, parseTypeError := parseOptionalInt(request.URL.Query().Get("type_id"))
+	if parseTypeError != nil {
+		return domain.DeviceListQuery{}, parseTypeError
+	}
+
+	return domain.DeviceListQuery{
+		Pagination: pagination,
+		ObjectID:   objectID,
+		TypeID:     typeID,
+		Search:     request.URL.Query().Get("search"),
+	}, nil
+}
+
+func parseTagListQuery(
+	request *http.Request,
+	pathDeviceID *string,
+) (domain.TagListQuery, error) {
+	pagination, parseError := parsePagination(request)
+	if parseError != nil {
+		return domain.TagListQuery{}, parseError
+	}
+
+	deviceID := pathDeviceID
+	if deviceID == nil {
+		deviceID = stringPointerOrNil(request.URL.Query().Get("device_id"))
+	}
+
+	dataTypeID, parseTypeError := parseOptionalInt(request.URL.Query().Get("data_type_id"))
+	if parseTypeError != nil {
+		return domain.TagListQuery{}, parseTypeError
+	}
+
+	return domain.TagListQuery{
+		Pagination: pagination,
+		DeviceID:   deviceID,
+		DataTypeID: dataTypeID,
+		Search:     request.URL.Query().Get("search"),
+	}, nil
+}
+
+func parseDiagramListQuery(
+	request *http.Request,
+	pathObjectID *string,
+) (domain.DiagramListQuery, error) {
+	pagination, parseError := parsePagination(request)
+	if parseError != nil {
+		return domain.DiagramListQuery{}, parseError
+	}
+
+	objectID := pathObjectID
+	if objectID == nil {
+		objectID = stringPointerOrNil(request.URL.Query().Get("object_id"))
+	}
+
+	return domain.DiagramListQuery{
+		Pagination: pagination,
+		ObjectID:   objectID,
+		Search:     request.URL.Query().Get("search"),
+	}, nil
+}
+
+func parseFigureListQuery(
+	request *http.Request,
+	diagramID string,
+) (domain.FigureListQuery, error) {
+	pagination, parseError := parsePagination(request)
+	if parseError != nil {
+		return domain.FigureListQuery{}, parseError
+	}
+
+	typeFilter := stringPointerOrNil(request.URL.Query().Get("type"))
+	return domain.FigureListQuery{
+		Pagination: pagination,
+		DiagramID:  diagramID,
+		TypeFilter: typeFilter,
+	}, nil
+}
+
+func parsePagination(request *http.Request) (domain.Pagination, error) {
+	offset, parseOffsetError := parseIntWithDefault(request.URL.Query().Get("offset"), 0)
+	if parseOffsetError != nil {
+		return domain.Pagination{}, parseOffsetError
+	}
+
+	limit, parseLimitError := parseIntWithDefault(request.URL.Query().Get("limit"), 50)
+	if parseLimitError != nil {
+		return domain.Pagination{}, parseLimitError
+	}
+
+	if offset < 0 || limit < 0 {
+		return domain.Pagination{}, domain.ErrInvalidInput
+	}
+
+	if limit > 200 {
+		limit = 200
+	}
+
+	return domain.Pagination{
+		Offset: offset,
+		Limit:  limit,
+	}, nil
+}
+
+func parseIntWithDefault(rawValue string, defaultValue int) (int, error) {
+	if strings.TrimSpace(rawValue) == "" {
+		return defaultValue, nil
+	}
+
+	parsedValue, parseError := strconv.Atoi(rawValue)
+	if parseError != nil {
+		return 0, domain.ErrInvalidInput
+	}
+
+	return parsedValue, nil
+}
+
+func parseOptionalInt(rawValue string) (*int, error) {
+	if strings.TrimSpace(rawValue) == "" {
+		return nil, nil
+	}
+
+	parsedValue, parseError := strconv.Atoi(rawValue)
+	if parseError != nil {
+		return nil, domain.ErrInvalidInput
+	}
+
+	return &parsedValue, nil
+}
+
+func stringPointerOrNil(value string) *string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+
 	return &value
 }
 

@@ -41,7 +41,8 @@ type MonitoringObjectRepository interface {
 	) error
 	ListMonitoringObjects(
 		ctx context.Context,
-	) ([]MonitoringObject, error)
+		query ObjectListQuery,
+	) (ListResult[MonitoringObject], error)
 }
 
 type DiagramRepository interface {
@@ -66,10 +67,10 @@ type DiagramRepository interface {
 		ctx context.Context,
 		diagramID string,
 	) (Diagram, error)
-	ListDiagramsByMonitoringObject(
+	ListDiagrams(
 		ctx context.Context,
-		monitoringObjectID string,
-	) ([]Diagram, error)
+		query DiagramListQuery,
+	) (ListResult[Diagram], error)
 }
 
 type FigureRepository interface {
@@ -87,10 +88,10 @@ type FigureRepository interface {
 		ctx context.Context,
 		figureID string,
 	) error
-	ListFiguresByDiagram(
+	ListFigures(
 		ctx context.Context,
-		diagramID string,
-	) ([]Figure, error)
+		query FigureListQuery,
+	) (ListResult[Figure], error)
 }
 
 type DeviceRepository interface {
@@ -111,10 +112,10 @@ type DeviceRepository interface {
 		ctx context.Context,
 		deviceID string,
 	) error
-	ListDevicesByObject(
+	ListDevices(
 		ctx context.Context,
-		objectID string,
-	) ([]Device, error)
+		query DeviceListQuery,
+	) (ListResult[Device], error)
 	AssignDeviceToObject(
 		ctx context.Context,
 		deviceID string,
@@ -162,10 +163,10 @@ type TagRepository interface {
 		ctx context.Context,
 		tagID string,
 	) error
-	ListTagsByDevice(
+	ListTags(
 		ctx context.Context,
-		deviceID string,
-	) ([]Tag, error)
+		query TagListQuery,
+	) (ListResult[Tag], error)
 }
 
 type TagParamsRepository interface {

@@ -91,6 +91,7 @@ func (useCase *MonitoringObjectUseCase) DeleteMonitoringObject(
 
 func (useCase *MonitoringObjectUseCase) ListMonitoringObjects(
 	ctx context.Context,
-) ([]domain.MonitoringObject, error) {
-	return useCase.monitoringObjectRepository.ListMonitoringObjects(ctx)
+	query domain.ObjectListQuery,
+) (domain.ListResult[domain.MonitoringObject], error) {
+	return useCase.monitoringObjectRepository.ListMonitoringObjects(ctx, query)
 }

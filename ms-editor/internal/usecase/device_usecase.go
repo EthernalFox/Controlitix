@@ -182,15 +182,15 @@ func (useCase *DeviceUseCase) DeleteDevice(
 	return nil
 }
 
-func (useCase *DeviceUseCase) ListDevicesByObject(
+func (useCase *DeviceUseCase) ListDevices(
 	ctx context.Context,
-	objectID string,
-) ([]domain.Device, error) {
-	if strings.TrimSpace(objectID) == "" {
-		return nil, domain.ErrInvalidInput
+	query domain.DeviceListQuery,
+) (domain.ListResult[domain.Device], error) {
+	if query.ObjectID != nil && strings.TrimSpace(*query.ObjectID) == "" {
+		return domain.ListResult[domain.Device]{}, domain.ErrInvalidInput
 	}
 
-	return useCase.deviceRepo.ListDevicesByObject(ctx, objectID)
+	return useCase.deviceRepo.ListDevices(ctx, query)
 }
 
 func (useCase *DeviceUseCase) AssignDeviceToObject(

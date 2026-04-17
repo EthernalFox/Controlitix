@@ -223,15 +223,15 @@ func (useCase *TagUseCase) DeleteTag(
 	return nil
 }
 
-func (useCase *TagUseCase) ListTagsByDevice(
+func (useCase *TagUseCase) ListTags(
 	ctx context.Context,
-	deviceID string,
-) ([]domain.Tag, error) {
-	if strings.TrimSpace(deviceID) == "" {
-		return nil, domain.ErrInvalidInput
+	query domain.TagListQuery,
+) (domain.ListResult[domain.Tag], error) {
+	if query.DeviceID != nil && strings.TrimSpace(*query.DeviceID) == "" {
+		return domain.ListResult[domain.Tag]{}, domain.ErrInvalidInput
 	}
 
-	return useCase.tagRepo.ListTagsByDevice(ctx, deviceID)
+	return useCase.tagRepo.ListTags(ctx, query)
 }
 
 func (useCase *TagUseCase) UpdateTagParams(
