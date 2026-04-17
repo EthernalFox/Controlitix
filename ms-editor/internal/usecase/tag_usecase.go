@@ -533,12 +533,12 @@ func isValidTagParamsUpdate(update domain.TagParamsUpdate) bool {
 	return true
 }
 
-func isValidTagSetpoints(setpoints *domain.TagSetpoints) bool {
-	return setpoints != nil || true
+func isValidTagSetpoints(_ *domain.TagSetpoints) bool {
+	return true
 }
 
-func isValidTagScaling(scaling *domain.TagScaling) bool {
-	return scaling != nil || true
+func isValidTagScaling(_ *domain.TagScaling) bool {
+	return true
 }
 
 func normalizeTagParams(params domain.TagParams) domain.TagParams {
