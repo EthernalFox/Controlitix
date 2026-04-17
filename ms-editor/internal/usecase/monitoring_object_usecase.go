@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -36,8 +37,8 @@ func (useCase *MonitoringObjectUseCase) CreateMonitoringObject(
 	name string,
 	description *string,
 ) (domain.MonitoringObject, error) {
-	if strings.TrimSpace(name) == "" {
-		return domain.MonitoringObject{}, domain.ErrInvalidInput
+	if validationError := domain.ValidateRequiredName("name", name); validationError != nil {
+		return domain.MonitoringObject{}, validationError
 	}
 
 	monitoringObject := domain.MonitoringObject{
@@ -56,7 +57,7 @@ func (useCase *MonitoringObjectUseCase) GetMonitoringObject(
 	monitoringObjectID string,
 ) (domain.MonitoringObject, error) {
 	if strings.TrimSpace(monitoringObjectID) == "" {
-		return domain.MonitoringObject{}, domain.ErrInvalidInput
+		return domain.MonitoringObject{}, fmt.Errorf("object_id is required: %w", domain.ErrInvalidInput)
 	}
 
 	return useCase.monitoringObjectRepository.GetMonitoringObject(
@@ -72,7 +73,11 @@ func (useCase *MonitoringObjectUseCase) UpdateMonitoringObject(
 	description *string,
 ) (domain.MonitoringObject, error) {
 	if strings.TrimSpace(monitoringObjectID) == "" {
-		return domain.MonitoringObject{}, domain.ErrInvalidInput
+		return domain.MonitoringObject{}, fmt.Errorf("object_id is required: %w", domain.ErrInvalidInput)
+	}
+
+	if validationError := domain.ValidateOptionalName("name", name); validationError != nil {
+		return domain.MonitoringObject{}, validationError
 	}
 
 	update := domain.MonitoringObjectUpdate{

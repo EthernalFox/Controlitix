@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -38,7 +39,11 @@ func (useCase *DiagramUseCase) CreateDiagram(
 	description *string,
 ) (domain.Diagram, error) {
 	if strings.TrimSpace(objectID) == "" {
-		return domain.Diagram{}, domain.ErrInvalidInput
+		return domain.Diagram{}, fmt.Errorf("object_id is required: %w", domain.ErrInvalidInput)
+	}
+
+	if validationError := domain.ValidateOptionalMaxLength("name", name, 255); validationError != nil {
+		return domain.Diagram{}, validationError
 	}
 
 	diagram := domain.Diagram{
@@ -55,7 +60,7 @@ func (useCase *DiagramUseCase) GetDiagram(
 	diagramID string,
 ) (domain.Diagram, error) {
 	if strings.TrimSpace(diagramID) == "" {
-		return domain.Diagram{}, domain.ErrInvalidInput
+		return domain.Diagram{}, fmt.Errorf("diagram_id is required: %w", domain.ErrInvalidInput)
 	}
 
 	return useCase.diagramRepository.GetDiagram(ctx, diagramID)
@@ -68,7 +73,11 @@ func (useCase *DiagramUseCase) UpdateDiagram(
 	description *string,
 ) (domain.Diagram, error) {
 	if strings.TrimSpace(diagramID) == "" {
-		return domain.Diagram{}, domain.ErrInvalidInput
+		return domain.Diagram{}, fmt.Errorf("diagram_id is required: %w", domain.ErrInvalidInput)
+	}
+
+	if validationError := domain.ValidateOptionalMaxLength("name", name, 255); validationError != nil {
+		return domain.Diagram{}, validationError
 	}
 
 	update := domain.DiagramUpdate{

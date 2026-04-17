@@ -3,6 +3,8 @@ package usecase
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -50,8 +52,17 @@ func (useCase *DeviceUseCase) CreateDevice(
 	description *string,
 	settings json.RawMessage,
 ) (domain.DeviceWithParams, error) {
-	if !isValidOptionalIdentifier(objectID) || typeID <= 0 || strings.TrimSpace(name) == "" {
-		return domain.DeviceWithParams{}, domain.ErrInvalidInput
+	if !isValidOptionalIdentifier(objectID) {
+		return domain.DeviceWithParams{}, fmt.Errorf("object_id must not be empty: %w", domain.ErrInvalidInput)
+	}
+
+	if validationError := domain.ValidateRequiredName("name", name); validationError != nil {
+		return domain.DeviceWithParams{}, validationError
+	}
+
+	deviceType, validationError := useCase.validateDeviceType(ctx, typeID)
+	if validationError != nil {
+		return domain.DeviceWithParams{}, validationError
 	}
 
 	device := domain.Device{
@@ -62,6 +73,9 @@ func (useCase *DeviceUseCase) CreateDevice(
 	}
 
 	normalizedSettings := normalizeSettings(settings)
+	if settingsValidationError := domain.ValidateDeviceSettings(deviceType.Name, normalizedSettings); settingsValidationError != nil {
+		return domain.DeviceWithParams{}, settingsValidationError
+	}
 
 	var createdDevice domain.Device
 	var deviceParams domain.DeviceParams
@@ -126,8 +140,12 @@ func (useCase *DeviceUseCase) UpdateDevice(
 	deviceID string,
 	update domain.DeviceUpdate,
 ) (domain.Device, error) {
-	if strings.TrimSpace(deviceID) == "" || !isValidDeviceUpdate(update) {
-		return domain.Device{}, domain.ErrInvalidInput
+	if strings.TrimSpace(deviceID) == "" {
+		return domain.Device{}, fmt.Errorf("device_id is required: %w", domain.ErrInvalidInput)
+	}
+
+	if validationError := useCase.validateDeviceUpdate(ctx, update); validationError != nil {
+		return domain.Device{}, validationError
 	}
 
 	device, updateError := useCase.deviceRepo.UpdateDevice(ctx, deviceID, update)
@@ -246,19 +264,32 @@ func (useCase *DeviceUseCase) UpdateDeviceParams(
 	settings json.RawMessage,
 ) (domain.DeviceParams, error) {
 	if strings.TrimSpace(deviceID) == "" {
-		return domain.DeviceParams{}, domain.ErrInvalidInput
+		return domain.DeviceParams{}, fmt.Errorf("device_id is required: %w", domain.ErrInvalidInput)
+	}
+
+	deviceWithParams, getError := useCase.deviceRepo.GetDevice(ctx, deviceID)
+	if getError != nil {
+		return domain.DeviceParams{}, getError
+	}
+
+	normalizedSettings := normalizeSettings(settings)
+	if settingsValidationError := domain.ValidateDeviceSettings(
+		deviceWithParams.Device.TypeName,
+		normalizedSettings,
+	); settingsValidationError != nil {
+		return domain.DeviceParams{}, settingsValidationError
 	}
 
 	deviceParams, updateError := useCase.deviceParamsRepo.UpsertDeviceParams(
 		ctx,
 		deviceID,
-		normalizeSettings(settings),
+		normalizedSettings,
 	)
 	if updateError != nil {
 		return domain.DeviceParams{}, updateError
 	}
 
-	deviceWithParams, getError := useCase.deviceRepo.GetDevice(ctx, deviceID)
+	deviceWithParams, getError = useCase.deviceRepo.GetDevice(ctx, deviceID)
 	if getError != nil {
 		return domain.DeviceParams{}, getError
 	}
@@ -366,14 +397,42 @@ func isValidOptionalIdentifier(identifier *string) bool {
 	return identifier == nil || strings.TrimSpace(*identifier) != ""
 }
 
-func isValidDeviceUpdate(update domain.DeviceUpdate) bool {
-	if update.TypeID != nil && *update.TypeID <= 0 {
-		return false
+func (useCase *DeviceUseCase) validateDeviceUpdate(
+	ctx context.Context,
+	update domain.DeviceUpdate,
+) error {
+	if update.TypeID != nil {
+		if _, validationError := useCase.validateDeviceType(ctx, *update.TypeID); validationError != nil {
+			return validationError
+		}
 	}
 
-	if update.Name != nil && strings.TrimSpace(*update.Name) == "" {
-		return false
+	if validationError := domain.ValidateOptionalName("name", update.Name); validationError != nil {
+		return validationError
 	}
 
-	return true
+	return nil
+}
+
+func (useCase *DeviceUseCase) validateDeviceType(
+	ctx context.Context,
+	typeID int,
+) (domain.DeviceType, error) {
+	if typeID <= 0 {
+		return domain.DeviceType{}, fmt.Errorf("type_id is required: %w", domain.ErrInvalidInput)
+	}
+
+	deviceType, getError := useCase.deviceTypeRepo.GetDeviceType(ctx, typeID)
+	if getError != nil {
+		if errors.Is(getError, domain.ErrNotFound) {
+			return domain.DeviceType{}, domain.NewValidationError(domain.FieldError{
+				Field:   "type_id",
+				Message: "must reference an existing device type",
+			})
+		}
+
+		return domain.DeviceType{}, getError
+	}
+
+	return deviceType, nil
 }

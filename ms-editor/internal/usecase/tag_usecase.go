@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 )
 
 type TagUseCase struct {
+	deviceRepo     domain.DeviceRepository
 	tagRepo        domain.TagRepository
 	tagParamsRepo  domain.TagParamsRepository
 	setpointsRepo  domain.TagSetpointsRepository
@@ -21,6 +23,7 @@ type TagUseCase struct {
 }
 
 func NewTagUseCase(
+	deviceRepo domain.DeviceRepository,
 	tagRepo domain.TagRepository,
 	tagParamsRepo domain.TagParamsRepository,
 	setpointsRepo domain.TagSetpointsRepository,
@@ -34,6 +37,7 @@ func NewTagUseCase(
 	}
 
 	return &TagUseCase{
+		deviceRepo:     deviceRepo,
 		tagRepo:        tagRepo,
 		tagParamsRepo:  tagParamsRepo,
 		setpointsRepo:  setpointsRepo,
@@ -53,16 +57,40 @@ func (useCase *TagUseCase) CreateTag(
 	setpoints *domain.TagSetpoints,
 	scaling *domain.TagScaling,
 ) (domain.TagFull, error) {
-	if strings.TrimSpace(deviceID) == "" || strings.TrimSpace(name) == "" {
-		return domain.TagFull{}, domain.ErrInvalidInput
+	if strings.TrimSpace(deviceID) == "" {
+		return domain.TagFull{}, fmt.Errorf("device_id is required: %w", domain.ErrInvalidInput)
 	}
 
-	if !isValidTagParams(params) || !isValidTagSetpoints(setpoints) || !isValidTagScaling(scaling) {
-		return domain.TagFull{}, domain.ErrInvalidInput
+	if validationError := domain.ValidateRequiredName("name", name); validationError != nil {
+		return domain.TagFull{}, validationError
 	}
 
 	if (setpoints != nil || scaling != nil) && params == nil {
-		return domain.TagFull{}, domain.ErrInvalidInput
+		return domain.TagFull{}, fmt.Errorf(
+			"params are required when setpoints or scaling are provided: %w",
+			domain.ErrInvalidInput,
+		)
+	}
+
+	deviceWithParams, getDeviceError := useCase.deviceRepo.GetDevice(ctx, deviceID)
+	if getDeviceError != nil {
+		return domain.TagFull{}, getDeviceError
+	}
+
+	if validationError := useCase.validateTagParams(
+		ctx,
+		deviceWithParams.Device.TypeName,
+		params,
+	); validationError != nil {
+		return domain.TagFull{}, validationError
+	}
+
+	if setpointsValidationError := domain.ValidateSetpointsValue(setpoints); setpointsValidationError != nil {
+		return domain.TagFull{}, setpointsValidationError
+	}
+
+	if scalingValidationError := domain.ValidateScalingValue(scaling); scalingValidationError != nil {
+		return domain.TagFull{}, scalingValidationError
 	}
 
 	tag := domain.Tag{
@@ -167,8 +195,12 @@ func (useCase *TagUseCase) UpdateTag(
 	tagID string,
 	update domain.TagUpdate,
 ) (domain.Tag, error) {
-	if strings.TrimSpace(tagID) == "" || !isValidTagUpdate(update) {
-		return domain.Tag{}, domain.ErrInvalidInput
+	if strings.TrimSpace(tagID) == "" {
+		return domain.Tag{}, fmt.Errorf("tag_id is required: %w", domain.ErrInvalidInput)
+	}
+
+	if validationError := domain.ValidateOptionalName("name", update.Name); validationError != nil {
+		return domain.Tag{}, validationError
 	}
 
 	tag, updateError := useCase.tagRepo.UpdateTag(ctx, tagID, update)
@@ -249,8 +281,34 @@ func (useCase *TagUseCase) UpdateTagParams(
 	tagID string,
 	update domain.TagParamsUpdate,
 ) (domain.TagParams, error) {
-	if strings.TrimSpace(tagID) == "" || !isValidTagParamsUpdate(update) {
-		return domain.TagParams{}, domain.ErrInvalidInput
+	if strings.TrimSpace(tagID) == "" {
+		return domain.TagParams{}, fmt.Errorf("tag_id is required: %w", domain.ErrInvalidInput)
+	}
+
+	if validationError := validateTagParamsUpdateInput(update); validationError != nil {
+		return domain.TagParams{}, validationError
+	}
+
+	tagFull, getError := useCase.tagRepo.GetTag(ctx, tagID)
+	if getError != nil {
+		return domain.TagParams{}, getError
+	}
+
+	deviceWithParams, getDeviceError := useCase.deviceRepo.GetDevice(ctx, tagFull.Tag.DeviceID)
+	if getDeviceError != nil {
+		return domain.TagParams{}, getDeviceError
+	}
+
+	if validationError := useCase.validateTagParams(
+		ctx,
+		deviceWithParams.Device.TypeName,
+		&domain.TagParams{
+			DataTypeID: *update.DataTypeID,
+			UnitID:     normalizeUnitID(update.UnitID),
+			Address:    normalizeRawJSON(*update.Address),
+		},
+	); validationError != nil {
+		return domain.TagParams{}, validationError
 	}
 
 	tagParams, updateError := useCase.tagParamsRepo.UpsertTagParams(
@@ -262,7 +320,7 @@ func (useCase *TagUseCase) UpdateTagParams(
 		return domain.TagParams{}, updateError
 	}
 
-	tagFull, getError := useCase.tagRepo.GetTag(ctx, tagID)
+	tagFull, getError = useCase.tagRepo.GetTag(ctx, tagID)
 	if getError != nil {
 		return domain.TagParams{}, getError
 	}
@@ -284,8 +342,12 @@ func (useCase *TagUseCase) UpdateTagSetpoints(
 	tagID string,
 	setpoints domain.TagSetpoints,
 ) (domain.TagSetpoints, error) {
-	if strings.TrimSpace(tagID) == "" || !isValidTagSetpoints(&setpoints) {
-		return domain.TagSetpoints{}, domain.ErrInvalidInput
+	if strings.TrimSpace(tagID) == "" {
+		return domain.TagSetpoints{}, fmt.Errorf("tag_id is required: %w", domain.ErrInvalidInput)
+	}
+
+	if validationError := domain.ValidateSetpoints(setpoints); validationError != nil {
+		return domain.TagSetpoints{}, validationError
 	}
 
 	tagFull, getError := useCase.tagRepo.GetTag(ctx, tagID)
@@ -293,7 +355,10 @@ func (useCase *TagUseCase) UpdateTagSetpoints(
 		return domain.TagSetpoints{}, getError
 	}
 	if tagFull.Params == nil {
-		return domain.TagSetpoints{}, domain.ErrInvalidInput
+		return domain.TagSetpoints{}, fmt.Errorf(
+			"tag params must exist before updating setpoints: %w",
+			domain.ErrInvalidInput,
+		)
 	}
 
 	tagSetpoints, updateError := useCase.setpointsRepo.UpsertTagSetpoints(
@@ -365,8 +430,12 @@ func (useCase *TagUseCase) UpdateTagScaling(
 	tagID string,
 	scaling domain.TagScaling,
 ) (domain.TagScaling, error) {
-	if strings.TrimSpace(tagID) == "" || !isValidTagScaling(&scaling) {
-		return domain.TagScaling{}, domain.ErrInvalidInput
+	if strings.TrimSpace(tagID) == "" {
+		return domain.TagScaling{}, fmt.Errorf("tag_id is required: %w", domain.ErrInvalidInput)
+	}
+
+	if validationError := domain.ValidateScaling(scaling); validationError != nil {
+		return domain.TagScaling{}, validationError
 	}
 
 	tagFull, getError := useCase.tagRepo.GetTag(ctx, tagID)
@@ -374,7 +443,10 @@ func (useCase *TagUseCase) UpdateTagScaling(
 		return domain.TagScaling{}, getError
 	}
 	if tagFull.Params == nil {
-		return domain.TagScaling{}, domain.ErrInvalidInput
+		return domain.TagScaling{}, fmt.Errorf(
+			"tag params must exist before updating scaling: %w",
+			domain.ErrInvalidInput,
+		)
 	}
 
 	tagScaling, updateError := useCase.scalingRepo.UpsertTagScaling(
@@ -509,36 +581,16 @@ func (useCase *TagUseCase) publishTagEvent(
 	}
 }
 
-func isValidTagUpdate(update domain.TagUpdate) bool {
-	if update.Name != nil && strings.TrimSpace(*update.Name) == "" {
-		return false
+func validateTagParamsUpdateInput(update domain.TagParamsUpdate) error {
+	if update.DataTypeID == nil || update.Address == nil {
+		return fmt.Errorf("data_type_id and address are required: %w", domain.ErrInvalidInput)
 	}
 
-	return true
-}
-
-func isValidTagParams(params *domain.TagParams) bool {
-	if params == nil {
-		return true
+	if *update.DataTypeID <= 0 {
+		return fmt.Errorf("data_type_id is required: %w", domain.ErrInvalidInput)
 	}
 
-	return params.DataTypeID > 0
-}
-
-func isValidTagParamsUpdate(update domain.TagParamsUpdate) bool {
-	if update.DataTypeID == nil || *update.DataTypeID <= 0 || update.Address == nil {
-		return false
-	}
-
-	return true
-}
-
-func isValidTagSetpoints(_ *domain.TagSetpoints) bool {
-	return true
-}
-
-func isValidTagScaling(_ *domain.TagScaling) bool {
-	return true
+	return nil
 }
 
 func normalizeTagParams(params domain.TagParams) domain.TagParams {
@@ -595,4 +647,70 @@ func normalizeUnitID(unitID *int) *int {
 	}
 
 	return unitID
+}
+
+func (useCase *TagUseCase) validateTagParams(
+	ctx context.Context,
+	deviceTypeName string,
+	params *domain.TagParams,
+) error {
+	if params == nil {
+		return nil
+	}
+
+	if params.DataTypeID <= 0 {
+		return fmt.Errorf("data_type_id is required: %w", domain.ErrInvalidInput)
+	}
+
+	dataTypes, listDataTypesError := useCase.referenceRepo.ListDataTypes(ctx)
+	if listDataTypesError != nil {
+		return listDataTypesError
+	}
+
+	if !containsDataType(dataTypes, params.DataTypeID) {
+		return domain.NewValidationError(domain.FieldError{
+			Field:   "data_type_id",
+			Message: "must reference an existing data type",
+		})
+	}
+
+	if params.UnitID != nil {
+		units, listUnitsError := useCase.referenceRepo.ListUnits(ctx)
+		if listUnitsError != nil {
+			return listUnitsError
+		}
+
+		if !containsUnit(units, *params.UnitID) {
+			return domain.NewValidationError(domain.FieldError{
+				Field:   "unit_id",
+				Message: "must reference an existing unit",
+			})
+		}
+	}
+
+	if addressValidationError := domain.ValidateTagAddress(deviceTypeName, normalizeRawJSON(params.Address)); addressValidationError != nil {
+		return addressValidationError
+	}
+
+	return nil
+}
+
+func containsDataType(dataTypes []domain.DataType, dataTypeID int) bool {
+	for _, dataType := range dataTypes {
+		if dataType.ID == dataTypeID {
+			return true
+		}
+	}
+
+	return false
+}
+
+func containsUnit(units []domain.Unit, unitID int) bool {
+	for _, unit := range units {
+		if unit.ID == unitID {
+			return true
+		}
+	}
+
+	return false
 }

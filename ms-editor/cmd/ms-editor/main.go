@@ -88,6 +88,7 @@ func main() {
 		postgresRepository,
 		postgresRepository,
 		postgresRepository,
+		postgresRepository,
 		kafkaEventPublisher,
 		logger,
 	)

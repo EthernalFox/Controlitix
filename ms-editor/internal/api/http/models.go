@@ -173,6 +173,16 @@ type listResponse struct {
 	Limit  int `json:"limit"`
 }
 
-type errorResponse struct {
+type problemResponse struct {
+	Type     string       `json:"type"`
+	Title    string       `json:"title"`
+	Status   int          `json:"status"`
+	Detail   string       `json:"detail,omitempty"`
+	Instance string       `json:"instance,omitempty"`
+	Errors   []fieldError `json:"errors,omitempty"`
+}
+
+type fieldError struct {
+	Field   string `json:"field"`
 	Message string `json:"message"`
 }

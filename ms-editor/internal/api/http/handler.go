@@ -1685,8 +1685,7 @@ func decodeJSONBody[T any](body io.ReadCloser) (T, error) {
 }
 
 func writeDomainError(responseWriter http.ResponseWriter, domainError error) {
-	statusCode, message := mapDomainError(domainError)
-	writeError(responseWriter, statusCode, message)
+	writeProblem(responseWriter, mapDomainError(domainError))
 }
 
 func optionalString(value string) *string {
