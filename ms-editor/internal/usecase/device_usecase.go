@@ -375,5 +375,5 @@ func isValidDeviceUpdate(update domain.DeviceUpdate) bool {
 		return false
 	}
 
-	return update.Description == nil || true
+	return true
 }
