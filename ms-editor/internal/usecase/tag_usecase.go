@@ -294,6 +294,15 @@ func (useCase *TagUseCase) UpdateTagParams(
 		return domain.TagParams{}, getError
 	}
 
+	effectiveUnitID := unitIDForUpdate(update.UnitID, tagFull.Params)
+	normalizedAddress := normalizeRawJSON(*update.Address)
+	paramsToUpsert := domain.TagParams{
+		TagID:      tagID,
+		DataTypeID: *update.DataTypeID,
+		UnitID:     effectiveUnitID,
+		Address:    normalizedAddress,
+	}
+
 	deviceWithParams, getDeviceError := useCase.deviceRepo.GetDevice(ctx, tagFull.Tag.DeviceID)
 	if getDeviceError != nil {
 		return domain.TagParams{}, getDeviceError
@@ -302,11 +311,7 @@ func (useCase *TagUseCase) UpdateTagParams(
 	if validationError := useCase.validateTagParams(
 		ctx,
 		deviceWithParams.Device.TypeName,
-		&domain.TagParams{
-			DataTypeID: *update.DataTypeID,
-			UnitID:     normalizeUnitID(update.UnitID),
-			Address:    normalizeRawJSON(*update.Address),
-		},
+		&paramsToUpsert,
 	); validationError != nil {
 		return domain.TagParams{}, validationError
 	}
@@ -314,7 +319,7 @@ func (useCase *TagUseCase) UpdateTagParams(
 	tagParams, updateError := useCase.tagParamsRepo.UpsertTagParams(
 		ctx,
 		tagID,
-		normalizeTagParamsUpdate(tagID, update),
+		paramsToUpsert,
 	)
 	if updateError != nil {
 		return domain.TagParams{}, updateError
@@ -599,23 +604,6 @@ func normalizeTagParams(params domain.TagParams) domain.TagParams {
 	return params
 }
 
-func normalizeTagParamsUpdate(
-	tagID string,
-	update domain.TagParamsUpdate,
-) domain.TagParams {
-	var address json.RawMessage
-	if update.Address != nil {
-		address = *update.Address
-	}
-
-	return domain.TagParams{
-		TagID:      tagID,
-		DataTypeID: *update.DataTypeID,
-		UnitID:     normalizeUnitID(update.UnitID),
-		Address:    normalizeRawJSON(address),
-	}
-}
-
 func normalizeTagSetpoints(
 	paramID string,
 	setpoints domain.TagSetpoints,
@@ -647,6 +635,22 @@ func normalizeUnitID(unitID *int) *int {
 	}
 
 	return unitID
+}
+
+func unitIDForUpdate(
+	updateUnitID *int,
+	currentParams *domain.TagParams,
+) *int {
+	if updateUnitID == nil {
+		if currentParams == nil || currentParams.UnitID == nil {
+			return nil
+		}
+
+		currentUnitID := *currentParams.UnitID
+		return &currentUnitID
+	}
+
+	return normalizeUnitID(updateUnitID)
 }
 
 func (useCase *TagUseCase) validateTagParams(
