@@ -1,0 +1,1 @@
+export { ObjectsNavbar } from "./ObjectsNavbar";

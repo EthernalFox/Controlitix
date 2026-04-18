@@ -1,7 +1,7 @@
 ﻿export interface MimicModel {
   id: string;
   objectId: string;
-  name: string;
+  name: string | null;
   description: string | null;
   createdAt: string;
   updatedAt: string;

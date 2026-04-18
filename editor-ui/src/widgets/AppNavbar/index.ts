@@ -1,2 +1,0 @@
-export { AppNavbar } from "./AppNavbar";
-

@@ -1,8 +1,7 @@
-export { ObjectStore } from "./ObjectStore";
-export { monitoringObjectsMock } from "./objects.mocks";
-export * from "./api";
+export { objectsApi } from "./api";
+export { useObjectsStore } from "./store";
 export type {
-  MonitoringObjectModel,
-  MonitoringObjectsStore,
-  SaveMonitoringObjectPayload
+  CreateObjectPayload,
+  MonitoringObject,
+  UpdateObjectPayload
 } from "./types";

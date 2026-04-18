@@ -1,5 +1,6 @@
-import { Group, Text } from "@shared/ui/components";
 import { NavLink } from "react-router";
+
+import { Group, Text } from "@shared/ui/components";
 
 export const Logo = () => {
   return (
