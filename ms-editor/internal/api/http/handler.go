@@ -1551,15 +1551,24 @@ func parseTagListQuery(
 		deviceID = stringPointerOrNil(request.URL.Query().Get("device_id"))
 	}
 
+	objectID := stringPointerOrNil(request.URL.Query().Get("object_id"))
+
 	dataTypeID, parseTypeError := parseOptionalInt(request.URL.Query().Get("data_type_id"))
 	if parseTypeError != nil {
 		return domain.TagListQuery{}, parseTypeError
 	}
 
+	unitID, parseUnitError := parseOptionalInt(request.URL.Query().Get("unit_id"))
+	if parseUnitError != nil {
+		return domain.TagListQuery{}, parseUnitError
+	}
+
 	return domain.TagListQuery{
 		Pagination: pagination,
+		ObjectID:   objectID,
 		DeviceID:   deviceID,
 		DataTypeID: dataTypeID,
+		UnitID:     unitID,
 		Search:     request.URL.Query().Get("search"),
 	}, nil
 }

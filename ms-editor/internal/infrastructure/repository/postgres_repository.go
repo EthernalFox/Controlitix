@@ -552,16 +552,21 @@ SELECT
     t.updated_at,
     COUNT(*) OVER()
 FROM tags.tags t
+LEFT JOIN devices.devices d ON d.id = t.device_id
 LEFT JOIN tags.tag_params tp ON tp.tag_id = t.id
 WHERE t.deleted_at IS NULL
   AND ($1::uuid IS NULL OR t.device_id = $1)
-  AND ($2::int IS NULL OR tp.data_type_id = $2)
-  AND ($3 = '' OR t.name ILIKE $3 ESCAPE '\')
+  AND ($2::uuid IS NULL OR (d.object_id = $2 AND d.deleted_at IS NULL))
+  AND ($3::int IS NULL OR tp.data_type_id = $3)
+  AND ($4::int IS NULL OR tp.unit_id = $4)
+  AND ($5 = '' OR t.name ILIKE $5 ESCAPE '\')
 ORDER BY t.created_at DESC
-LIMIT $4 OFFSET $5
+LIMIT $6 OFFSET $7
 `,
 		query.DeviceID,
+		query.ObjectID,
 		query.DataTypeID,
+		query.UnitID,
 		searchPattern,
 		query.Limit,
 		query.Offset,

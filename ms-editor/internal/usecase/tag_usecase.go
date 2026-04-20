@@ -269,7 +269,19 @@ func (useCase *TagUseCase) ListTags(
 	ctx context.Context,
 	query domain.TagListQuery,
 ) (domain.ListResult[domain.Tag], error) {
+	if query.ObjectID != nil && strings.TrimSpace(*query.ObjectID) == "" {
+		return domain.ListResult[domain.Tag]{}, domain.ErrInvalidInput
+	}
+
 	if query.DeviceID != nil && strings.TrimSpace(*query.DeviceID) == "" {
+		return domain.ListResult[domain.Tag]{}, domain.ErrInvalidInput
+	}
+
+	if query.DataTypeID != nil && *query.DataTypeID <= 0 {
+		return domain.ListResult[domain.Tag]{}, domain.ErrInvalidInput
+	}
+
+	if query.UnitID != nil && *query.UnitID <= 0 {
 		return domain.ListResult[domain.Tag]{}, domain.ErrInvalidInput
 	}
 

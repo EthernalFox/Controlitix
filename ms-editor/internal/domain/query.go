@@ -26,8 +26,10 @@ type DeviceListQuery struct {
 
 type TagListQuery struct {
 	Pagination
+	ObjectID   *string
 	DeviceID   *string
 	DataTypeID *int
+	UnitID     *int
 	Search     string
 }
 
