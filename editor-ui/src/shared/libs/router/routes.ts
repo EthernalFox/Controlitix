@@ -46,7 +46,7 @@ export const routes: RouteObject[] = [
           },
           {
             path: "diagrams",
-            lazy: lazyLoader("../../../pages/MimicsPage"),
+            lazy: lazyLoader("../../../pages/DiagramsPage"),
             handle: { title: "Мнемосхемы" }
           }
         ]
@@ -55,7 +55,7 @@ export const routes: RouteObject[] = [
   },
   {
     path: routePaths.diagramEditor,
-    lazy: lazyLoader("../../../pages/DrawPage"),
+    lazy: lazyLoader("../../../pages/EditorPage"),
     handle: { title: "Редактор" }
   }
 ];

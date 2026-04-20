@@ -1,1 +1,0 @@
-export { DrawFooter } from "./DrawFooter";

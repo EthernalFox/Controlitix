@@ -13,6 +13,7 @@
   "dependencies": {
     "@mantine/core": "^8.2.1",
     "@mantine/hooks": "^8.2.1",
+    "@tabler/icons-react": "^3.41.1",
     "dayjs": "^1.11.13",
     "konva": "^9.3.18",
     "react": "^19.0.0",
