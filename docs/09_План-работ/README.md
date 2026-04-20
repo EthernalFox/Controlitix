@@ -2,6 +2,40 @@
 
 Дорожная карта разработки Controlitix MVP. План разбит на фазы с чёткими deliverables, зависимостями и критериями готовности. Фазы допускают частичную параллельную работу — см. раздел «Критический путь».
 
+---
+
+## Статус разработки (апрель 2026)
+
+**Общая готовность MVP: ~27%**
+
+Расчёт: фазы взвешены по трудозатратам (P0=10%, P1=10%, P2=12%, P3=18%, P4=15%, P5=15%, P6=15%, P7=5%). После последних ревью: P2≈80%, P3≈40%, остальные без изменений.
+
+### Покрытие пользовательских сценариев
+
+| Сценарий | Статус | Что работает | Что отсутствует |
+|---|:---:|---|---|
+| **Инженер: добавить устройство** (Modbus/SNMP) | 🟡 Частично | Backend CRUD устройств и тегов — реализован. Frontend: страница устройств готова, страница тегов в `ready`. | Нет опроса (`ms-poll` не реализован) — теги не получают значений. Публикация `config.changed` есть, но слушателя нет. |
+| **Инженер: создать мнемосхему** | 🟡 Частично | Backend: CRUD мнемосхем, фигур, параметров. Frontend: список схем готов. | Canvas-редактор — placeholder. Привязка фигур к тегам, публикация — не реализованы в UI. |
+| **Инженер: привязать фигуры к тегам** | 🔴 Не готов | Бэкенд `figures.tag_id` и `figure_params` в схеме БД. | Редактор (спека 0011) не реализован. `ms-viewer` + WebSocket отсутствуют — real-time данных нет. |
+| **Инженер: настроить тренды и отчёты** | 🔴 Не готов | — | `ms-viewer` не реализован. История значений не пишется. Viewer UI отсутствует. |
+| **Оператор: мониторинг и квитирование тревог** | 🔴 Не готов | `tags.tag_setpoints` в схеме БД. | Движок тревог (`ms-viewer`) не реализован. Viewer UI отсутствует. |
+| **Уведомления: Telegram** | 🔴 Не готов | — | Telegram notifier — часть `ms-viewer`, не реализован. |
+| **Администратор: управление доступом (RBAC)** | 🔴 Не готов | Схема `auth` в миграциях. | `ms-auth` не реализован. JWT, RBAC middleware, пользователи — отсутствуют. |
+
+**Легенда:** 🟢 Готово end-to-end · 🟡 Частично (бэкенд без UI или UI без данных) · 🔴 Не готов
+
+### Что реально работает сегодня
+
+При поднятом `docker compose up`:
+
+- Инженер может **создать объект**, **добавить устройство** (Modbus TCP/RTU, SNMP v1/v2c/v3), **добавить теги** — через `editor-ui` (страницы Objects, Devices; Tags — `ready`, но Codex ещё не реализовал).
+- Конфигурация сохраняется в PostgreSQL, события `config.changed` идут в Kafka.
+- Список **мнемосхем** объекта виден и создаётся через UI (страница Diagrams готова).
+- Canvas-редактор и привязка фигур — **placeholder**, данных в реальном времени нет.
+- Всё остальное (polling, history, alarms, viewer, auth) — **недоступно**.
+
+---
+
 ## Принципы планирования
 
 - **MVP под конкретного заказчика.** Всё, что не приближает к пилотному развёртыванию, откладывается.
@@ -14,14 +48,106 @@
 
 | Компонент | Состояние |
 |---|---|
-| `ms-editor` | Каркас Clean Architecture, HTTP API частично, репозитории — stubs (возвращают `ErrNotImplemented`), Swagger UI подключён, миграция `000001_init.sql` только по схеме `public`. |
-| `ms-poll` | Не реализован. Только README. |
-| `ms-viewer` | Не реализован. Только README и архитектурное описание. |
-| `ms-auth` | Не реализован. Только упоминание в документации. |
-| `editor-ui` | Каркас FSD, React + Konva + Mantine, Zustand-сторы, API-клиенты созданы но **не подключены**, страницы работают на моках. Canvas-редактор — placeholder. |
-| `viewer-ui` | Не реализован. Только README. |
-| `docs/` | После итерации 1 есть: НФТ, ADR, архитектура с mermaid, модель данных (базовая), глоссарий, сценарии (черновые). Дизайн и UX появились частично: есть первые артефакты по IA, design system и типам фигур, но Phase 0 далеко не завершена. |
-| Инфраструктура | Есть `ms-editor/docker-compose.yml` (PG + сервис). Полного стека нет. |
+| `ms-editor` | Реализован core CRUD (`objects`, `devices`, `tags`), фильтрация/пагинация, soft delete с каскадом, validation + RFC 7807 errors, Kafka `config.changed`. Миграции на 6 схем (`public`, `devices`, `tags`, `history`, `alarms`, `auth`). Не сделаны: bulk-операции для фигур, integration-тесты через testcontainers, OpenAPI на 100%. |
+| `ms-poll` | Не реализован. Спеки 0012–0016 готовы (`ready`). |
+| `ms-viewer` | Не реализован. Спек ещё нет. |
+| `ms-auth` | Не реализован. Только упоминание в документации, спеки нет. |
+| `editor-ui` | Каркас FSD + Layout/Design System + фасады Mantine, маршрутизация, API-клиент. Сделаны страницы Objects (review), Diagrams (done). В работе: Devices (wip). Готовы к разработке: Editor (0011), Tags (0017). Canvas-редактор — placeholder. |
+| `viewer-ui` | Не реализован. Спек ещё нет. |
+| `docs/` | НФТ, ADR (11 шт), архитектура, модель данных, сценарии. Дизайн: есть IA, Design System (текстовая), Figure Types. Нет: wireframes, hi-fi mockups, HMI visual language, component catalog. |
+| Инфраструктура | Корневой `docker-compose.yml` готов: postgres+timescale, kafka KRaft, ms-editor + одношотовый `ms-editor-migrate`, editor-ui (nginx), gateway-nginx. Не сделаны: ms-auth, ms-poll, ms-viewer, viewer-ui, redis, healthcheck-ы, TLS. |
+
+## Прогресс по спецификациям
+
+| # | Файл | Фаза | Статус | Примечание |
+|---|---|---|---|---|
+| 0001 | editor-ui-layout-design-system | 3 | `ready` | Layout, темы, фасады реализованы по факту в 0008 — спека требует ревизии и закрытия |
+| 0002 | ms-editor-db-migrations | 2 | `done` | Исправлен: новая миграция `000003` добавила `UNIQUE` на `tag_params.tag_id` |
+| 0003 | ms-editor-device-crud-kafka | 2 | `done` | |
+| 0004 | ms-editor-tag-crud | 2 | `done` | |
+| 0005 | ms-editor-filtering-pagination | 2 | `done` | |
+| 0006 | ms-editor-soft-delete-cascade | 2 | `done` | |
+| 0007 | ms-editor-validation-errors | 2 | `done` | |
+| 0008 | editor-ui-objects-page | 3 | `done` | Пустые директории-артефакты удалены |
+| 0009 | editor-ui-diagrams-page | 3 | `done` | |
+| 0010 | editor-ui-devices-page | 3 | `done` | |
+| 0011 | editor-ui-editor-page | 3 | `ready` | Холст + панели — самая трудоёмкая UI-спека |
+| 0012 | ms-poll-skeleton | 4 | `ready` | |
+| 0013 | ms-poll-config-cache | 4 | `ready` | |
+| 0014 | ms-poll-scheduler-driver-framework | 4 | `ready` | |
+| 0015 | ms-poll-modbus-drivers | 4 | `ready` | |
+| 0016 | ms-poll-snmp-normalization-publishing | 4 | `ready` | |
+| 0017 | editor-ui-tags-page | 3 | `ready` | Зависимость на бэкенд: добавить фильтры `object_id` и `unit_id` в `GET /tags` |
+| 0018 | ms-auth-skeleton | 1 | `ready` | Каркас сервиса (config, PG, slog, health, Dockerfile) |
+| 0019 | ms-auth-migrations-seeds | 1 | `ready` | Схема `auth.*` + справочники ролей / identity_sources + initial admin |
+| 0020 | ms-auth-identity-provider | 1 | `ready` | domain + `IdentityProvider` интерфейс + `LocalProvider` (Argon2id) |
+| 0021 | ms-auth-jwt-jwks | 1 | `ready` | RS256 issuer, JWKS endpoint, refresh-rotation + reuse detection |
+| 0022 | ms-auth-http-auth | 1 | `ready` | `/login`, `/refresh`, `/logout`, `/userinfo`, rate-limit, audit |
+| 0023 | ms-auth-admin-and-service-tokens | 1 | `ready` | `/service-token` + admin CRUD users/roles/ТУЗ, audit |
+| 0024 | shared-authctx-jwt-validation | 1 | `ready` | Общий Go-пакет для валидации JWT + middleware, подключение в ms-editor |
+
+**Сводка по статусам:** done — 9 · review — 0 · wip — 0 · ready — 15.
+
+## Прогресс по фазам (приблизительно)
+
+| Фаза | Прогресс | Что сделано | Что осталось |
+|---|---:|---|---|
+| Phase 0 — Design & UX | ~25% | IA, Design System (текст), Figure Types | Wireframes, hi-fi mockups (8 экранов), HMI visual language, component catalog, design review с заказчиком |
+| Phase 1 — Инфра + ms-auth | ~35% | docker-compose со всеми текущими сервисами, миграции, gateway nginx | ms-auth целиком (JWT, JWKS, RBAC, audit), redis, healthcheck-ы, TLS, shared `authctx`, observability |
+| Phase 2 — ms-editor | ~80% | CRUD, фильтрация, soft delete, валидация, Kafka, миграции на 6 схем, UNIQUE-фикс tag_params | Bulk-апсерт фигур, integration-тесты testcontainers, 100% OpenAPI, JSONB-валидация по `device_type.schema_ref` |
+| Phase 3 — editor-ui | ~40% | Layout/DS, маршрутизация, фасады, страницы Objects/Diagrams/Devices | Editor (canvas + панели, спека 0011), Tags (спека 0017), autosave, публикация, login/refresh |
+| Phase 4 — ms-poll | ~5% | Только спеки 0012–0016 | Полная реализация: skeleton, config-cache, scheduler/drivers, Modbus TCP/RTU, SNMP, нормализация, публикация |
+| Phase 5 — ms-viewer | 0% | — | Consumer Kafka, history, Redis-кэш, REST трендов, WebSocket, движок тревог, квитирование, Telegram-нотификации |
+| Phase 6 — viewer-ui | 0% | — | Каркас, дашборд, просмотр мнемосхем (Pixi), активные тревоги, история, тренды, админ-страница |
+| Phase 7 — Пилот | 0% | — | E2E, нагрузка, реальное железо, документация, backup/restore, развёртывание |
+
+**Общая готовность MVP: ~25–30%.**
+
+Расчёт: фазы взвешены по трудозатратам — P0=10%, P1=10%, P2=12%, P3=18%, P4=15%, P5=15%, P6=15%, P7=5%. Получается ≈ 0.10·25 + 0.10·35 + 0.12·75 + 0.18·35 + 0.15·5 + 0 + 0 + 0 = **~24%**.
+
+## План ближайших итераций
+
+### Итерация А — ✅ Выполнена
+
+- 0002 `done` — UNIQUE-индекс добавлен миграцией `000003`.
+- 0008 `done` — пустые директории удалены.
+- 0010 `done` — страница устройств с Drawer и полями по протоколам реализована и прошла ревью.
+
+### Итерация Б (текущая, 1–2 недели): Tags + Editor
+
+1. **Спека 0018** (новая, написать) — бэкенд: фильтры `object_id` и `unit_id` в `GET /tags`, перевести `GET /tags` на уровень репозитория.
+2. **Спека 0017** (`ready`) — фронт страницы тегов: `TagDrawer` с динамическими полями адреса (Modbus/SNMP), уставки, масштабирование.
+3. **Спека 0001** (`ready`) — ревизия и закрытие: Layout и фасады реализованы де-факто в 0008, нужен итоговый чек-лист.
+4. **Спека 0011** (`ready`) — Konva-редактор: холст, фигуры, transformer, undo/redo, панели Properties + Data. Самая трудоёмкая UI-спека.
+
+### Итерация Б (2–3 недели): редактор мнемосхем + дополнения ms-editor
+
+1. **Спека 0011** — самый крупный фронт-таск (Konva, undo/redo, панели, autosave).
+2. **Параллельно** — мини-спеки на bulk-апсерт фигур в ms-editor + testcontainers-интеграционные тесты.
+3. Закрыть оставшиеся пробелы Phase 2 (JSONB-валидация по schema_ref, ревизия OpenAPI).
+
+### Итерация В (1–2 недели): ms-poll MVP
+
+1. Спеки 0012 → 0013 → 0014 → 0015 → 0016 последовательно.
+2. Завести тестовый стенд с симуляторами Modbus (`diagslave`) и SNMP (`snmpsimd`).
+3. Дополнить `docker-compose.yml` сервисом ms-poll.
+
+### Итерация Г: ms-auth и ms-viewer
+
+- **Серия спек ms-auth (0018–0024) готова к передаче Codex.** Последовательность: 0018 → 0019 → 0020 → 0021 → 0022 → 0023; 0024 можно начинать параллельно с 0022 (зависит только от 0021).
+- Серия спек ms-viewer **ещё не написана** — следующая задача архитектора: consumer Kafka, history-writer, Redis last-values, REST трендов, WebSocket, alarm engine, Telegram notifier.
+
+Параллельно — **Phase 0 design**: вытащить wireframes и hi-fi mockups до старта viewer-ui.
+
+### Итерация Д: viewer-ui + интеграция
+
+Только после готовности дизайна и ms-viewer. Спеки также пишутся заранее.
+
+## Что блокирует прогресс прямо сейчас
+
+1. **Дизайн** — для viewer-ui и редактора (0011) нужны hi-fi mockups; пока работаем по wireframes из `Information-Architecture.md`. Рекомендация: Phase 0 закрывать параллельно с итерацией Б.
+2. **Спеки ms-auth и ms-viewer** ещё не написаны — это работа архитектора (Claude).
+3. **Тестовое железо/симуляторы** — без них Phase 4 нельзя верифицировать.
 
 ## Состав фаз (высокоуровнево)
 
@@ -220,14 +346,17 @@ flowchart LR
 
 ## 1.3 ms-auth
 
-- Endpoints: `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/userinfo`, `POST /api/auth/service-token`, `GET /.well-known/jwks.json`.
-- JWT: RS256, приватный ключ в `.env`, публичный через JWKS.
+Спеки серии 0018–0024 (см. таблицу ниже). Архитектура — [`../02_Архитектура/Микросервисы/ms-auth.md`](../02_Архитектура/Микросервисы/ms-auth.md), решения — [ADR-0012](../08_ADR/ADR-0012-ms-auth-pluggable-identity.md).
+
+- Endpoints: `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/userinfo`, `POST /api/auth/service-token`, `GET /.well-known/jwks.json`, `/api/auth/admin/*`.
+- JWT: RS256, приватный ключ в `.env`, публичный через JWKS. Стабильный `sub` (`local:<uuid>` / `svc:<name>` и т.д.) — чтобы при будущем подключении AD/LDAP токены не ломались.
 - 3 роли: `admin`, `engineer`, `operator`. Без per-object RBAC.
-- ТУЗ (client_credentials) для межсервисной аутентификации.
-- TTL access: 15 мин, refresh: 14 дней.
-- Password hashing: bcrypt.
-- Admin-endpoints: CRUD пользователей, назначение ролей.
-- Audit log при каждом логине / выдаче токена.
+- ТУЗ (client_credentials) для межсервисной аутентификации, refresh для ТУЗ не выдаётся.
+- TTL access: 15 мин, refresh: 14 дней, rotation + reuse detection.
+- Password hashing: **Argon2id + pepper** (не bcrypt). Pepper — отдельная env-переменная, не хранится в БД, поэтому offline-brute-force при утечке одной только БД нерентабелен.
+- Admin-endpoints: CRUD пользователей, назначение ролей, CRUD ТУЗ.
+- Audit log при каждом логине / refresh / выдаче service-token / админ-действии.
+- **Pluggable identity sources:** в MVP реализован только `LocalProvider`, но таблицы `auth.identity_sources`, `auth.role_mappings` и интерфейс `IdentityProvider` заложены — подключение LDAP / AD / Kerberos / OIDC federation будет новой реализацией, без миграции токенов и БД.
 
 ## 1.4 Shared Go-пакет для JWT-валидации
 
