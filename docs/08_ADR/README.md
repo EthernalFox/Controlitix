@@ -44,6 +44,7 @@
 | [ADR-0009](ADR-0009-telegram-only-notifications.md) | accepted | Только Telegram как канал уведомлений в MVP |
 | [ADR-0010](ADR-0010-kafka-event-bus.md) | accepted | Kafka как шина событий |
 | [ADR-0011](ADR-0011-konva-pixi-split.md) | accepted | Konva в редакторе, Pixi в просмотрщике |
+| [ADR-0012](ADR-0012-ms-auth-pluggable-identity.md) | accepted | ms-auth — JWT + расширяемые источники идентичности |
 
 ## Принципы принятия решений
 

@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-controlitix}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-controlitix}
+      POSTGRES_DB: ${POSTGRES_DB:-controlitix}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ms_auth_postgres:/var/lib/postgresql/data
+
+  ms-auth:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      - postgres
+    ports:
+      - "8083:8083"
+
+volumes:
+  ms_auth_postgres:
