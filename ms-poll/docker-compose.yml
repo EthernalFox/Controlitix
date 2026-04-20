@@ -1,0 +1,13 @@
+services:
+  ms-poll:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8081:8081"
+    networks:
+      - controlitix
+
+networks:
+  controlitix:
+    external: true
