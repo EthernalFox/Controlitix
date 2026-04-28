@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/EthernalFox/Controlitix/shared/authctx"
 	"github.com/EthernalFox/Controlitix/ms-editor/internal/domain"
 	"github.com/EthernalFox/Controlitix/ms-editor/internal/usecase"
 )
@@ -17,6 +18,7 @@ type Handler struct {
 	figureUseCase           *usecase.FigureUseCase
 	deviceUseCase           *usecase.DeviceUseCase
 	tagUseCase              *usecase.TagUseCase
+	authValidator           *authctx.Validator
 }
 
 func NewHandler(
@@ -25,6 +27,7 @@ func NewHandler(
 	figureUseCase *usecase.FigureUseCase,
 	deviceUseCase *usecase.DeviceUseCase,
 	tagUseCase *usecase.TagUseCase,
+	authValidator *authctx.Validator,
 ) *Handler {
 	return &Handler{
 		monitoringObjectUseCase: monitoringObjectUseCase,
@@ -32,23 +35,59 @@ func NewHandler(
 		figureUseCase:           figureUseCase,
 		deviceUseCase:           deviceUseCase,
 		tagUseCase:              tagUseCase,
+		authValidator:           authValidator,
 	}
 }
 
-func (handler *Handler) RegisterRoutes(httpServeMux *http.ServeMux) {
+func (handler *Handler) RegisterRoutes() http.Handler {
+	httpServeMux := http.NewServeMux()
+	protectedHandler := chainMiddleware(
+		http.HandlerFunc(handler.dispatchProtectedRoutes),
+		authctx.RequireAuth(handler.authValidator),
+		requireMutationRole("engineer", "admin"),
+	)
+
 	httpServeMux.HandleFunc("/health", handler.handleHealth)
-	httpServeMux.HandleFunc("/objects", handler.handleObjects)
-	httpServeMux.HandleFunc("/objects/", handler.handleObjects)
-	httpServeMux.HandleFunc("/diagrams/", handler.handleDiagrams)
-	httpServeMux.HandleFunc("/figures/", handler.handleFigures)
-	httpServeMux.HandleFunc("/devices", handler.handleDevices)
-	httpServeMux.HandleFunc("/devices/", handler.handleDevices)
-	httpServeMux.HandleFunc("/device-types", handler.handleDeviceTypes)
-	httpServeMux.HandleFunc("/tags", handler.handleTags)
-	httpServeMux.HandleFunc("/tags/", handler.handleTags)
-	httpServeMux.HandleFunc("/data-types", handler.handleDataTypes)
-	httpServeMux.HandleFunc("/units", handler.handleUnits)
+	httpServeMux.Handle("/objects", protectedHandler)
+	httpServeMux.Handle("/objects/", protectedHandler)
+	httpServeMux.Handle("/diagrams/", protectedHandler)
+	httpServeMux.Handle("/figures/", protectedHandler)
+	httpServeMux.Handle("/devices", protectedHandler)
+	httpServeMux.Handle("/devices/", protectedHandler)
+	httpServeMux.Handle("/device-types", protectedHandler)
+	httpServeMux.Handle("/tags", protectedHandler)
+	httpServeMux.Handle("/tags/", protectedHandler)
+	httpServeMux.Handle("/data-types", protectedHandler)
+	httpServeMux.Handle("/units", protectedHandler)
 	registerSwaggerRoutes(httpServeMux)
+
+	return httpServeMux
+}
+
+func (handler *Handler) dispatchProtectedRoutes(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+) {
+	switch {
+	case strings.HasPrefix(request.URL.Path, "/objects"):
+		handler.handleObjects(responseWriter, request)
+	case strings.HasPrefix(request.URL.Path, "/diagrams/"):
+		handler.handleDiagrams(responseWriter, request)
+	case strings.HasPrefix(request.URL.Path, "/figures/"):
+		handler.handleFigures(responseWriter, request)
+	case strings.HasPrefix(request.URL.Path, "/devices"):
+		handler.handleDevices(responseWriter, request)
+	case strings.HasPrefix(request.URL.Path, "/device-types"):
+		handler.handleDeviceTypes(responseWriter, request)
+	case strings.HasPrefix(request.URL.Path, "/tags"):
+		handler.handleTags(responseWriter, request)
+	case strings.HasPrefix(request.URL.Path, "/data-types"):
+		handler.handleDataTypes(responseWriter, request)
+	case strings.HasPrefix(request.URL.Path, "/units"):
+		handler.handleUnits(responseWriter, request)
+	default:
+		writeError(responseWriter, http.StatusNotFound, "not found")
+	}
 }
 
 func (handler *Handler) handleHealth(
@@ -158,6 +197,8 @@ func (handler *Handler) handleDiagrams(
 		switch request.Method {
 		case http.MethodPost:
 			handler.createFigures(responseWriter, request, pathSegments[0])
+		case http.MethodPut:
+			handler.bulkUpsertFigures(responseWriter, request, pathSegments[0])
 		case http.MethodGet:
 			handler.listFiguresByDiagram(responseWriter, request, pathSegments[0])
 		default:
@@ -663,6 +704,52 @@ func (handler *Handler) createFigures(
 	}
 
 	writeJSON(responseWriter, http.StatusCreated, responsePayload)
+}
+
+func (handler *Handler) bulkUpsertFigures(
+	responseWriter http.ResponseWriter,
+	request *http.Request,
+	diagramID string,
+) {
+	requestPayload, decodeError := decodeJSONBody[bulkUpsertFiguresRequest](request.Body)
+	if decodeError != nil {
+		writeError(responseWriter, http.StatusBadRequest, "invalid json")
+		return
+	}
+
+	items := make([]domain.FigureBulkItem, 0, len(requestPayload.Figures))
+	for _, figure := range requestPayload.Figures {
+		items = append(items, domain.FigureBulkItem{
+			ID:         figure.ID,
+			FigureType: domain.FigureType(figure.FigureType),
+			TagID:      figure.TagID,
+			Parameters: figure.Parameters,
+		})
+	}
+
+	bulkResult, useCaseError := handler.figureUseCase.BulkUpsertFigures(
+		request.Context(),
+		diagramID,
+		items,
+	)
+	if useCaseError != nil {
+		writeDomainError(responseWriter, useCaseError)
+		return
+	}
+
+	responseFigures := make([]figureResponse, 0, len(bulkResult.Figures))
+	for _, figure := range bulkResult.Figures {
+		responseFigures = append(responseFigures, mapFigureResponse(figure))
+	}
+
+	writeJSON(responseWriter, http.StatusOK, bulkUpsertFiguresResponse{
+		Figures: responseFigures,
+		Summary: bulkSummary{
+			Created: bulkResult.Created,
+			Updated: bulkResult.Updated,
+			Deleted: bulkResult.Deleted,
+		},
+	})
 }
 
 func (handler *Handler) listFiguresByDiagram(
@@ -1703,4 +1790,40 @@ func optionalString(value string) *string {
 	}
 
 	return &value
+}
+
+func chainMiddleware(
+	handler http.Handler,
+	middlewares ...func(http.Handler) http.Handler,
+) http.Handler {
+	if len(middlewares) == 0 {
+		return handler
+	}
+
+	wrappedHandler := handler
+	for index := len(middlewares) - 1; index >= 0; index-- {
+		wrappedHandler = middlewares[index](wrappedHandler)
+	}
+
+	return wrappedHandler
+}
+
+func requireMutationRole(roles ...string) func(http.Handler) http.Handler {
+	roleMiddleware := authctx.RequireRole(roles...)
+
+	return func(next http.Handler) http.Handler {
+		roleProtectedHandler := roleMiddleware(next)
+
+		return http.HandlerFunc(func(
+			responseWriter http.ResponseWriter,
+			request *http.Request,
+		) {
+			switch request.Method {
+			case http.MethodGet, http.MethodHead, http.MethodOptions:
+				next.ServeHTTP(responseWriter, request)
+			default:
+				roleProtectedHandler.ServeHTTP(responseWriter, request)
+			}
+		})
+	}
 }

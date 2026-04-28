@@ -164,6 +164,21 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Figure"
+    put:
+      summary: Bulk upsert figures
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkUpsertFiguresRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkUpsertFiguresResponse"
     post:
       summary: Create figures
       requestBody:
@@ -359,6 +374,71 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/FigureRequest"
+    BulkUpsertFiguresRequest:
+      type: object
+      required:
+        - figures
+      properties:
+        figures:
+          type: array
+          items:
+            $ref: "#/components/schemas/BulkFigureItemRequest"
+    BulkFigureItemRequest:
+      type: object
+      required:
+        - type
+        - params
+      properties:
+        id:
+          type: string
+          format: uuid
+          nullable: true
+        type:
+          type: string
+          enum:
+            - rect
+            - circle
+            - ellipse
+            - wedge
+            - line
+            - image
+            - text
+            - ring
+            - arc
+            - tag
+            - path
+        tag_id:
+          type: string
+          format: uuid
+          nullable: true
+        params:
+          type: object
+          additionalProperties: true
+    BulkUpsertFiguresResponse:
+      type: object
+      required:
+        - figures
+        - summary
+      properties:
+        figures:
+          type: array
+          items:
+            $ref: "#/components/schemas/Figure"
+        summary:
+          $ref: "#/components/schemas/BulkSummary"
+    BulkSummary:
+      type: object
+      required:
+        - created
+        - updated
+        - deleted
+      properties:
+        created:
+          type: integer
+        updated:
+          type: integer
+        deleted:
+          type: integer
     FigureRequest:
       type: object
       required:

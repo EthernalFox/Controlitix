@@ -270,7 +270,146 @@ func (repository *PostgresRepository) CreateFigures(
 	diagramID string,
 	figures []domain.Figure,
 ) ([]domain.Figure, error) {
-	return nil, domain.ErrNotImplemented
+	createdFigures := make([]domain.Figure, 0, len(figures))
+
+	transactionError := repository.InTransaction(ctx, func(transactionContext context.Context) error {
+		for _, figure := range figures {
+			createdFigure, createError := repository.insertFigureWithParams(
+				transactionContext,
+				diagramID,
+				figure.FigureType,
+				figure.TagID,
+				figure.Parameters,
+			)
+			if createError != nil {
+				return createError
+			}
+
+			createdFigures = append(createdFigures, createdFigure)
+		}
+
+		return nil
+	})
+	if transactionError != nil {
+		return nil, transactionError
+	}
+
+	return createdFigures, nil
+}
+
+func (repository *PostgresRepository) BulkUpsertFigures(
+	ctx context.Context,
+	diagramID string,
+	items []domain.FigureBulkItem,
+) (domain.FigureBulkResult, error) {
+	result := domain.FigureBulkResult{
+		Figures:    make([]domain.Figure, 0, len(items)),
+		CreatedIDs: make([]string, 0, len(items)),
+		UpdatedIDs: make([]string, 0, len(items)),
+		DeletedIDs: make([]string, 0),
+	}
+
+	transactionError := repository.InTransaction(ctx, func(transactionContext context.Context) error {
+		existingFigureIDs, lockError := repository.lockFigureIDsByDiagram(
+			transactionContext,
+			diagramID,
+		)
+		if lockError != nil {
+			return lockError
+		}
+
+		existingFigureSet := make(map[string]struct{}, len(existingFigureIDs))
+		for _, existingFigureID := range existingFigureIDs {
+			existingFigureSet[existingFigureID] = struct{}{}
+		}
+
+		requestedFigureIDs := make(map[string]struct{}, len(items))
+		for _, item := range items {
+			if item.ID != nil {
+				requestedFigureIDs[*item.ID] = struct{}{}
+			}
+		}
+
+		for _, item := range items {
+			if item.ID == nil {
+				createdFigure, createError := repository.insertFigureWithParams(
+					transactionContext,
+					diagramID,
+					item.FigureType,
+					item.TagID,
+					item.Parameters,
+				)
+				if createError != nil {
+					return createError
+				}
+
+				result.Created++
+				result.CreatedIDs = append(result.CreatedIDs, createdFigure.ID)
+				result.Figures = append(result.Figures, createdFigure)
+				continue
+			}
+
+			figureID := *item.ID
+			if _, exists := existingFigureSet[figureID]; !exists {
+				return fmt.Errorf(
+					"figure %s does not belong to diagram %s: %w",
+					figureID,
+					diagramID,
+					domain.ErrNotFound,
+				)
+			}
+
+			updatedFigure, updateError := repository.updateFigureWithParams(
+				transactionContext,
+				diagramID,
+				figureID,
+				item.FigureType,
+				item.TagID,
+				item.Parameters,
+			)
+			if updateError != nil {
+				return updateError
+			}
+
+			result.Updated++
+			result.UpdatedIDs = append(result.UpdatedIDs, updatedFigure.ID)
+			result.Figures = append(result.Figures, updatedFigure)
+		}
+
+		deletedFigureIDs := make([]string, 0)
+		for _, existingFigureID := range existingFigureIDs {
+			if _, keepFigure := requestedFigureIDs[existingFigureID]; keepFigure {
+				continue
+			}
+
+			deletedFigureIDs = append(deletedFigureIDs, existingFigureID)
+		}
+
+		if len(deletedFigureIDs) > 0 {
+			if deleteError := repository.softDeleteFiguresByIDs(
+				transactionContext,
+				deletedFigureIDs,
+			); deleteError != nil {
+				return deleteError
+			}
+
+			if deleteError := repository.softDeleteFigureParamsByFigureIDs(
+				transactionContext,
+				deletedFigureIDs,
+			); deleteError != nil {
+				return deleteError
+			}
+		}
+
+		result.Deleted = len(deletedFigureIDs)
+		result.DeletedIDs = deletedFigureIDs
+		return nil
+	})
+	if transactionError != nil {
+		return domain.FigureBulkResult{}, transactionError
+	}
+
+	return result, nil
 }
 
 func (repository *PostgresRepository) UpdateFigure(
@@ -313,8 +452,10 @@ func (repository *PostgresRepository) ListFigures(
 		`
 SELECT id, diagram_id, tag_id, type, params, created_at, updated_at, COUNT(*) OVER()
 FROM public.figures
-LEFT JOIN public.figure_params ON figure_params.figure_id = public.figures.id
-WHERE deleted_at IS NULL
+LEFT JOIN public.figure_params
+    ON figure_params.figure_id = public.figures.id
+   AND figure_params.deleted_at IS NULL
+WHERE public.figures.deleted_at IS NULL
   AND diagram_id = $1
   AND ($2 = '' OR type = $2)
 ORDER BY created_at DESC
@@ -331,6 +472,226 @@ LIMIT $3 OFFSET $4
 	defer rows.Close()
 
 	return scanFigureList(rows, query.Offset, query.Limit)
+}
+
+func (repository *PostgresRepository) insertFigureWithParams(
+	ctx context.Context,
+	diagramID string,
+	figureType domain.FigureType,
+	tagID *string,
+	parameters json.RawMessage,
+) (domain.Figure, error) {
+	query := `
+WITH inserted_figure AS (
+    INSERT INTO public.figures (diagram_id, type, tag_id)
+    VALUES ($1, $2, $3)
+    RETURNING id, diagram_id, tag_id, type, created_at, updated_at
+),
+inserted_params AS (
+    INSERT INTO public.figure_params (figure_id, params)
+    SELECT inserted_figure.id, $4
+    FROM inserted_figure
+    RETURNING figure_id, params
+)
+SELECT
+    inserted_figure.id,
+    inserted_figure.diagram_id,
+    inserted_figure.tag_id,
+    inserted_figure.type,
+    inserted_params.params,
+    inserted_figure.created_at,
+    inserted_figure.updated_at
+FROM inserted_figure
+JOIN inserted_params ON inserted_params.figure_id = inserted_figure.id
+`
+
+	createdFigure, queryError := scanFigure(
+		repository.executor(ctx).QueryRowContext(
+			ctx,
+			query,
+			diagramID,
+			figureType,
+			tagID,
+			parameters,
+		),
+	)
+	if queryError != nil {
+		return domain.Figure{}, mapDatabaseError("create figure", queryError)
+	}
+
+	return createdFigure, nil
+}
+
+func (repository *PostgresRepository) updateFigureWithParams(
+	ctx context.Context,
+	diagramID string,
+	figureID string,
+	figureType domain.FigureType,
+	tagID *string,
+	parameters json.RawMessage,
+) (domain.Figure, error) {
+	updateFigureQuery := `
+UPDATE public.figures
+SET
+    type = $2,
+    tag_id = $3,
+    updated_at = now()
+WHERE id = $1
+  AND diagram_id = $4
+  AND deleted_at IS NULL
+`
+
+	result, executeError := repository.executor(ctx).ExecContext(
+		ctx,
+		updateFigureQuery,
+		figureID,
+		figureType,
+		tagID,
+		diagramID,
+	)
+	if executeError != nil {
+		return domain.Figure{}, mapDatabaseError("update figure", executeError)
+	}
+
+	if rowsError := ensureRowsAffected("update figure", result); rowsError != nil {
+		return domain.Figure{}, rowsError
+	}
+
+	upsertParamsQuery := `
+INSERT INTO public.figure_params (figure_id, params, deleted_at)
+VALUES ($1, $2, NULL)
+ON CONFLICT (figure_id) DO UPDATE
+SET
+    params = EXCLUDED.params,
+    deleted_at = NULL,
+    updated_at = now()
+`
+
+	if _, executeError := repository.executor(ctx).ExecContext(
+		ctx,
+		upsertParamsQuery,
+		figureID,
+		parameters,
+	); executeError != nil {
+		return domain.Figure{}, mapDatabaseError("upsert figure params", executeError)
+	}
+
+	selectQuery := `
+SELECT
+    figures.id,
+    figures.diagram_id,
+    figures.tag_id,
+    figures.type,
+    figure_params.params,
+    figures.created_at,
+    figures.updated_at
+FROM public.figures
+JOIN public.figure_params ON figure_params.figure_id = figures.id
+WHERE figures.id = $1
+  AND figures.deleted_at IS NULL
+  AND figure_params.deleted_at IS NULL
+`
+
+	updatedFigure, queryError := scanFigure(
+		repository.executor(ctx).QueryRowContext(ctx, selectQuery, figureID),
+	)
+	if queryError != nil {
+		return domain.Figure{}, mapDatabaseError("get updated figure", queryError)
+	}
+
+	return updatedFigure, nil
+}
+
+func (repository *PostgresRepository) lockFigureIDsByDiagram(
+	ctx context.Context,
+	diagramID string,
+) ([]string, error) {
+	rows, queryError := repository.executor(ctx).QueryContext(
+		ctx,
+		`
+SELECT id
+FROM public.figures
+WHERE diagram_id = $1
+  AND deleted_at IS NULL
+ORDER BY id
+FOR UPDATE
+`,
+		diagramID,
+	)
+	if queryError != nil {
+		return nil, mapDatabaseError("lock figure ids by diagram", queryError)
+	}
+	defer rows.Close()
+
+	figureIDs := make([]string, 0)
+	for rows.Next() {
+		var figureID string
+		if scanError := rows.Scan(&figureID); scanError != nil {
+			return nil, fmt.Errorf("scan locked figure id: %w", scanError)
+		}
+
+		figureIDs = append(figureIDs, figureID)
+	}
+
+	if rowsError := rows.Err(); rowsError != nil {
+		return nil, fmt.Errorf("lock figure ids by diagram: %w", rowsError)
+	}
+
+	return figureIDs, nil
+}
+
+func (repository *PostgresRepository) softDeleteFiguresByIDs(
+	ctx context.Context,
+	figureIDs []string,
+) error {
+	if len(figureIDs) == 0 {
+		return nil
+	}
+
+	_, executeError := repository.executor(ctx).ExecContext(
+		ctx,
+		`
+UPDATE public.figures
+SET
+    deleted_at = now(),
+    updated_at = now()
+WHERE id = ANY($1::uuid[])
+  AND deleted_at IS NULL
+`,
+		figureIDs,
+	)
+	if executeError != nil {
+		return mapDatabaseError("bulk soft delete figures", executeError)
+	}
+
+	return nil
+}
+
+func (repository *PostgresRepository) softDeleteFigureParamsByFigureIDs(
+	ctx context.Context,
+	figureIDs []string,
+) error {
+	if len(figureIDs) == 0 {
+		return nil
+	}
+
+	_, executeError := repository.executor(ctx).ExecContext(
+		ctx,
+		`
+UPDATE public.figure_params
+SET
+    deleted_at = now(),
+    updated_at = now()
+WHERE figure_id = ANY($1::uuid[])
+  AND deleted_at IS NULL
+`,
+		figureIDs,
+	)
+	if executeError != nil {
+		return mapDatabaseError("bulk soft delete figure params", executeError)
+	}
+
+	return nil
 }
 
 func (repository *PostgresRepository) CreateDevice(
@@ -1585,6 +1946,37 @@ func scanFigureList(
 		Offset: offset,
 		Limit:  limit,
 	}, nil
+}
+
+func scanFigure(scanner rowScanner) (domain.Figure, error) {
+	var (
+		figure domain.Figure
+		tagID  sql.NullString
+		params []byte
+	)
+
+	scanError := scanner.Scan(
+		&figure.ID,
+		&figure.DiagramID,
+		&tagID,
+		&figure.FigureType,
+		&params,
+		&figure.CreatedAt,
+		&figure.UpdatedAt,
+	)
+	if scanError != nil {
+		return domain.Figure{}, scanError
+	}
+
+	if tagID.Valid {
+		figure.TagID = &tagID.String
+	}
+
+	if params != nil {
+		figure.Parameters = append(json.RawMessage(nil), params...)
+	}
+
+	return figure, nil
 }
 
 func scanDeviceList(

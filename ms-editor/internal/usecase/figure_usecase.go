@@ -3,11 +3,14 @@ package usecase
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/EthernalFox/Controlitix/ms-editor/internal/domain"
+	"github.com/google/uuid"
 )
 
 type FigureUseCase struct {
@@ -70,6 +73,74 @@ func (useCase *FigureUseCase) UpdateFigure(
 		figureID,
 		update,
 	)
+}
+
+func (useCase *FigureUseCase) BulkUpsertFigures(
+	ctx context.Context,
+	diagramID string,
+	items []domain.FigureBulkItem,
+) (domain.FigureBulkResult, error) {
+	if strings.TrimSpace(diagramID) == "" {
+		return domain.FigureBulkResult{}, fmt.Errorf("diagram_id is required: %w", domain.ErrInvalidInput)
+	}
+
+	validationFields := make([]domain.FieldError, 0)
+	normalizedItems := make([]domain.FigureBulkItem, 0, len(items))
+	seenIDs := make(map[string]struct{}, len(items))
+
+	for index, item := range items {
+		normalizedItem, fieldErrors := validateFigureBulkItem(index, item, seenIDs)
+		if len(fieldErrors) > 0 {
+			validationFields = append(validationFields, fieldErrors...)
+		}
+
+		normalizedItems = append(normalizedItems, normalizedItem)
+	}
+
+	if len(validationFields) > 0 {
+		return domain.FigureBulkResult{}, domain.NewValidationError(validationFields...)
+	}
+
+	bulkResult, bulkError := useCase.figureRepository.BulkUpsertFigures(
+		ctx,
+		diagramID,
+		normalizedItems,
+	)
+	if bulkError != nil {
+		return domain.FigureBulkResult{}, bulkError
+	}
+
+	for _, figureID := range bulkResult.CreatedIDs {
+		useCase.publishFigureEvent(
+			ctx,
+			"BulkUpsertFigures",
+			figureID,
+			"created",
+			nil,
+		)
+	}
+
+	for _, figureID := range bulkResult.UpdatedIDs {
+		useCase.publishFigureEvent(
+			ctx,
+			"BulkUpsertFigures",
+			figureID,
+			"updated",
+			nil,
+		)
+	}
+
+	for _, figureID := range bulkResult.DeletedIDs {
+		useCase.publishFigureEvent(
+			ctx,
+			"BulkUpsertFigures",
+			figureID,
+			"deleted",
+			nil,
+		)
+	}
+
+	return bulkResult, nil
 }
 
 func (useCase *FigureUseCase) DeleteFigure(
@@ -163,4 +234,99 @@ func (useCase *FigureUseCase) publishFigureEvent(
 			publishError,
 		)
 	}
+}
+
+func validateFigureBulkItem(
+	index int,
+	item domain.FigureBulkItem,
+	seenIDs map[string]struct{},
+) (domain.FigureBulkItem, []domain.FieldError) {
+	validationFields := make([]domain.FieldError, 0)
+	fieldPrefix := fmt.Sprintf("figures[%d]", index)
+
+	normalizedItem := domain.FigureBulkItem{
+		Parameters: item.Parameters,
+	}
+
+	figureType, isSupportedFigureType := domain.ParseFigureType(string(item.FigureType))
+	if !isSupportedFigureType {
+		validationFields = append(validationFields, domain.FieldError{
+			Field:   fieldPrefix + ".type",
+			Message: "must be one of supported figure types",
+		})
+	} else {
+		normalizedItem.FigureType = figureType
+	}
+
+	if item.ID != nil {
+		figureID, parseFigureIDError := parseUUIDValue(*item.ID)
+		if parseFigureIDError != nil {
+			validationFields = append(validationFields, domain.FieldError{
+				Field:   fieldPrefix + ".id",
+				Message: parseFigureIDError.Error(),
+			})
+		} else {
+			if _, alreadyExists := seenIDs[figureID]; alreadyExists {
+				validationFields = append(validationFields, domain.FieldError{
+					Field:   fieldPrefix + ".id",
+					Message: "must be unique",
+				})
+			}
+			seenIDs[figureID] = struct{}{}
+			normalizedItem.ID = &figureID
+		}
+	}
+
+	if item.TagID != nil {
+		tagID, parseTagIDError := parseUUIDValue(*item.TagID)
+		if parseTagIDError != nil {
+			validationFields = append(validationFields, domain.FieldError{
+				Field:   fieldPrefix + ".tag_id",
+				Message: parseTagIDError.Error(),
+			})
+		} else {
+			normalizedItem.TagID = &tagID
+		}
+	}
+
+	if validationError := validateFigureParameters(item.Parameters); validationError != nil {
+		validationFields = append(validationFields, domain.FieldError{
+			Field:   fieldPrefix + ".params",
+			Message: validationError.Error(),
+		})
+	}
+
+	return normalizedItem, validationFields
+}
+
+func parseUUIDValue(rawValue string) (string, error) {
+	trimmedValue := strings.TrimSpace(rawValue)
+	if trimmedValue == "" {
+		return "", errors.New("must not be empty")
+	}
+
+	parsedValue, parseError := uuid.Parse(trimmedValue)
+	if parseError != nil {
+		return "", errors.New("must be a valid UUID")
+	}
+
+	return parsedValue.String(), nil
+}
+
+func validateFigureParameters(parameters json.RawMessage) error {
+	trimmedParameters := strings.TrimSpace(string(parameters))
+	if trimmedParameters == "" {
+		return errors.New("must be a valid JSON object")
+	}
+
+	var parametersObject map[string]json.RawMessage
+	if unmarshalError := json.Unmarshal([]byte(trimmedParameters), &parametersObject); unmarshalError != nil {
+		return errors.New("must be a valid JSON object")
+	}
+
+	if parametersObject == nil {
+		return errors.New("must be a valid JSON object")
+	}
+
+	return nil
 }

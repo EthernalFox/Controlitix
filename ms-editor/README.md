@@ -75,3 +75,19 @@ docker compose up --build
 - `internal/usecase` - сценарии
 - `internal/api/http` - HTTP слой
 - `internal/infrastructure` - БД и репозитории
+
+## Authentication
+
+All editor routes require Bearer access tokens from `ms-auth`.
+
+- `MS_EDITOR_AUTH_JWKS_URL` - JWKS endpoint (for example: `http://ms-auth:8083/.well-known/jwks.json`).
+- `MS_EDITOR_AUTH_ISSUER` - expected JWT issuer, default: `controlitix-auth`.
+- `MS_EDITOR_AUTH_AUDIENCE` - expected audience, default: `controlitix-api`.
+- `MS_EDITOR_AUTH_DISABLED` - dev bypass flag, default: `false`.
+
+Authorization policy:
+
+- all `GET` routes require authenticated token;
+- mutating routes (`POST`, `PATCH`, `PUT`, `DELETE`) require role `engineer` or `admin`.
+
+When `MS_EDITOR_AUTH_DISABLED=true`, authentication is bypassed for local development. Do not use this mode in production.

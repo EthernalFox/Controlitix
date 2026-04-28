@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/EthernalFox/Controlitix/shared/authctx"
 	transporthttp "github.com/EthernalFox/Controlitix/ms-editor/internal/api/http"
 	"github.com/EthernalFox/Controlitix/ms-editor/internal/config"
 	"github.com/EthernalFox/Controlitix/ms-editor/internal/infrastructure/database"
@@ -34,6 +35,35 @@ func main() {
 	slog.SetDefault(logger)
 
 	applicationContext := context.Background()
+
+	var authValidator *authctx.Validator
+	if applicationConfig.AuthDisabled {
+		authValidator = authctx.NewValidator(authctx.ValidatorOptions{
+			Disabled: true,
+			Logger:   logger,
+		})
+		logger.Warn("authentication disabled, do not use in production")
+	} else {
+		jwksCache, cacheError := authctx.NewJWKSCache(authctx.CacheOptions{
+			URL:    applicationConfig.AuthJWKSURL,
+			Logger: logger,
+		})
+		if cacheError != nil {
+			logger.Error("failed to initialize jwks cache", "error", cacheError)
+			os.Exit(1)
+		}
+
+		stopJWKSRefresh := jwksCache.Start(applicationContext)
+		defer stopJWKSRefresh()
+
+		authValidator = authctx.NewValidator(authctx.ValidatorOptions{
+			JWKSCache:         jwksCache,
+			ExpectedIssuer:    applicationConfig.AuthIssuer,
+			ExpectedAudiences: []string{applicationConfig.AuthAudience},
+			Logger:            logger,
+		})
+	}
+
 	databaseConnection, closeDatabase, databaseError := database.OpenPostgres(
 		applicationContext,
 		applicationConfig.DatabaseURL,
@@ -93,19 +123,19 @@ func main() {
 		logger,
 	)
 
-	httpServeMux := http.NewServeMux()
 	httpHandler := transporthttp.NewHandler(
 		monitoringObjectUseCase,
 		diagramUseCase,
 		figureUseCase,
 		deviceUseCase,
 		tagUseCase,
+		authValidator,
 	)
-	httpHandler.RegisterRoutes(httpServeMux)
+	router := httpHandler.RegisterRoutes()
 
 	httpServer := transporthttp.NewServer(
 		applicationConfig.HTTPAddress,
-		httpServeMux,
+		router,
 	)
 
 	shutdownContext, stopShutdown := signal.NotifyContext(

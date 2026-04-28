@@ -3,6 +3,7 @@ module github.com/EthernalFox/Controlitix/ms-editor
 go 1.24.4
 
 require (
+	github.com/EthernalFox/Controlitix/shared/authctx v0.0.0
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/joho/godotenv v1.5.1
 	github.com/pressly/goose/v3 v3.26.0
@@ -68,3 +69,5 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 	modernc.org/sqlite v1.38.2 // indirect
 )
+
+replace github.com/EthernalFox/Controlitix/shared/authctx => ../shared/authctx

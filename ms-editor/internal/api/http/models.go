@@ -37,7 +37,18 @@ type createFiguresRequest struct {
 	Figures []figureRequest `json:"figures"`
 }
 
+type bulkUpsertFiguresRequest struct {
+	Figures []bulkFigureItemRequest `json:"figures"`
+}
+
 type figureRequest struct {
+	FigureType string          `json:"type"`
+	TagID      *string         `json:"tag_id"`
+	Parameters json.RawMessage `json:"params"`
+}
+
+type bulkFigureItemRequest struct {
+	ID         *string         `json:"id,omitempty"`
 	FigureType string          `json:"type"`
 	TagID      *string         `json:"tag_id"`
 	Parameters json.RawMessage `json:"params"`
@@ -57,6 +68,17 @@ type figureResponse struct {
 	Parameters json.RawMessage `json:"params"`
 	CreatedAt  time.Time       `json:"created_at"`
 	UpdatedAt  time.Time       `json:"updated_at"`
+}
+
+type bulkUpsertFiguresResponse struct {
+	Figures []figureResponse `json:"figures"`
+	Summary bulkSummary      `json:"summary"`
+}
+
+type bulkSummary struct {
+	Created int `json:"created"`
+	Updated int `json:"updated"`
+	Deleted int `json:"deleted"`
 }
 
 type createDeviceRequest struct {

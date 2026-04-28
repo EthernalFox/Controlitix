@@ -97,6 +97,11 @@ type FigureRepository interface {
 		diagramID string,
 		figures []Figure,
 	) ([]Figure, error)
+	BulkUpsertFigures(
+		ctx context.Context,
+		diagramID string,
+		items []FigureBulkItem,
+	) (FigureBulkResult, error)
 	UpdateFigure(
 		ctx context.Context,
 		figureID string,

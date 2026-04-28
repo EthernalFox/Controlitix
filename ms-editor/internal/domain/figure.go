@@ -56,3 +56,20 @@ type Figure struct {
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }
+
+type FigureBulkItem struct {
+	ID         *string
+	FigureType FigureType
+	TagID      *string
+	Parameters json.RawMessage
+}
+
+type FigureBulkResult struct {
+	Figures    []Figure
+	Created    int
+	Updated    int
+	Deleted    int
+	CreatedIDs []string
+	UpdatedIDs []string
+	DeletedIDs []string
+}

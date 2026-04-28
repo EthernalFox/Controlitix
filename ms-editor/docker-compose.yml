@@ -15,6 +15,11 @@ services:
     build: .
     restart: unless-stopped
     env_file: .env
+    environment:
+      MS_EDITOR_AUTH_JWKS_URL: ${MS_EDITOR_AUTH_JWKS_URL:-http://ms-auth:8083/.well-known/jwks.json}
+      MS_EDITOR_AUTH_ISSUER: ${MS_EDITOR_AUTH_ISSUER:-controlitix-auth}
+      MS_EDITOR_AUTH_AUDIENCE: ${MS_EDITOR_AUTH_AUDIENCE:-controlitix-api}
+      MS_EDITOR_AUTH_DISABLED: ${MS_EDITOR_AUTH_DISABLED:-false}
     depends_on:
       - postgres
     ports:
