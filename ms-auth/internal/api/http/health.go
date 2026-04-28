@@ -21,11 +21,11 @@ func NewHealthHandler(databaseConnection *sql.DB) *HealthHandler {
 }
 
 func (handler *HealthHandler) RegisterRoutes(serveMux *http.ServeMux) {
-	serveMux.HandleFunc("GET /healthz", handler.handleHealthz)
-	serveMux.HandleFunc("GET /readyz", handler.handleReadyz)
+	serveMux.HandleFunc("GET /healthz", handler.Healthz)
+	serveMux.HandleFunc("GET /readyz", handler.Readyz)
 }
 
-func (handler *HealthHandler) handleHealthz(
+func (handler *HealthHandler) Healthz(
 	responseWriter http.ResponseWriter,
 	_ *http.Request,
 ) {
@@ -36,7 +36,7 @@ func (handler *HealthHandler) handleHealthz(
 	)
 }
 
-func (handler *HealthHandler) handleReadyz(
+func (handler *HealthHandler) Readyz(
 	responseWriter http.ResponseWriter,
 	request *http.Request,
 ) {

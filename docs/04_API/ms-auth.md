@@ -254,9 +254,69 @@ Client credentials grant. Refresh не выдаётся.
 - `POST   /api/auth/admin/service-accounts/{id}/rotate-secret` — возвращает новый `client_secret` один раз.
 - `DELETE /api/auth/admin/service-accounts/{id}`
 
+Запрос `POST /api/auth/admin/service-accounts`:
+
+```json
+{
+  "client_id": "ms-poll",
+  "display_name": "MS Poll",
+  "scopes": ["config.read", "tags.values.write"]
+}
+```
+
+Ответ `201 Created`:
+
+```json
+{
+  "service_account": {
+    "id": "d3b2...",
+    "client_id": "ms-poll",
+    "display_name": "MS Poll",
+    "scopes": ["config.read", "tags.values.write"],
+    "is_active": true,
+    "last_used_at": null,
+    "created_at": "2026-04-25T12:00:00Z",
+    "updated_at": "2026-04-25T12:00:00Z"
+  },
+  "client_secret": "base64url..."
+}
+```
+
+`POST /api/auth/admin/service-accounts/{id}/rotate-secret`:
+
+```json
+{
+  "client_secret": "new-base64url..."
+}
+```
+
 ### 4.6 Аудит
 
 - `GET /api/auth/admin/audit?offset=&limit=&action=&actor=&from=&to=` — чтение `auth.audit_log`.
+
+Ответ:
+
+```json
+{
+  "data": [
+    {
+      "id": "f49e...",
+      "occurred_at": "2026-04-25T12:10:00Z",
+      "actor_subject": "local:admin",
+      "action": "admin.user.create",
+      "target": "9a4f...",
+      "result": "success",
+      "reason": "",
+      "ip": "10.0.0.10",
+      "user_agent": "Mozilla/5.0",
+      "metadata": {"roles": ["engineer"]}
+    }
+  ],
+  "total": 1,
+  "offset": 0,
+  "limit": 50
+}
+```
 
 ## 5. Health
 
