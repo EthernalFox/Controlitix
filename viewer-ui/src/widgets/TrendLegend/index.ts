@@ -1,0 +1,1 @@
+export { TrendLegend } from "./TrendLegend";

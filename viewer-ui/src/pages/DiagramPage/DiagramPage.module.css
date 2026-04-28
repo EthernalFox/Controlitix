@@ -1,0 +1,46 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: calc(100vh - 120px);
+}
+
+.header {
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 8px;
+  background: var(--mantine-color-body);
+  padding: 12px;
+}
+
+.scaleLabel {
+  min-width: 52px;
+  text-align: right;
+}
+
+.canvasHost {
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  min-height: 560px;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 8px;
+  background: #0b0f19;
+  touch-action: none;
+}
+
+.connectionBanner {
+  position: absolute;
+  z-index: 4;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--mantine-color-alarm-warn-6) 24%, black);
+  color: var(--mantine-color-white);
+  pointer-events: none;
+}
+
+.centerBox {
+  min-height: 320px;
+}
