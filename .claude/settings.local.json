@@ -11,7 +11,12 @@
       "Bash(mv specs/0005.draft.ms-editor-filtering-pagination.md specs/0005.ready.ms-editor-filtering-pagination.md)",
       "Bash(mv specs/0006.draft.ms-editor-soft-delete-cascade.md specs/0006.ready.ms-editor-soft-delete-cascade.md)",
       "Bash(ls -la *.md)",
-      "Bash(ls *.md)"
+      "Bash(ls *.md)",
+      "Bash(git mv *)",
+      "Bash(go build *)",
+      "Bash(mv specs/0026.review.viewer-ui-skeleton.md specs/0026.rework.viewer-ui-skeleton.md)",
+      "Bash(mv specs/0027.review.viewer-ui-login.md specs/0027.done.viewer-ui-login.md)",
+      "Bash(mv specs/0028.review.viewer-ui-trends-client.md specs/0028.done.viewer-ui-trends-client.md)"
     ]
   },
   "enabledPlugins": {

@@ -52,7 +52,9 @@ Controlitix is a monitoring-first SCADA platform (monorepo).
 
 All tasks live in `specs/`. Filename format: `NNNN.STATUS.short-description.md`.
 
-Statuses: `draft` → `ready` → `wip` → `review` → `done` / `cancelled`.
+Statuses: `draft` → `ready` → `wip` → `review` → `done` / `rework` / `cancelled`.
+
+- `rework` — спека вернулась из ревью на доработку. Отличается от `ready` тем, что Codex уже делал реализацию, содержит секцию `## Review notes` с конкретными правками, требует доработки существующего кода, а не нового. После исправлений Codex — снова в `review`.
 
 **To change status** — rename the file (only the STATUS segment).
 **Template** — copy `specs/0000.done.spec-template.md`.
@@ -68,7 +70,7 @@ Statuses: `draft` → `ready` → `wip` → `review` → `done` / `cancelled`.
 
 1. Read the diff.
 2. If accepted: rename spec to `NNNN.done.*`.
-3. If changes needed: rename to `NNNN.ready.*` and append a `## Review notes` section with exact corrections.
+3. If changes needed: rename to `NNNN.rework.*` and append a `## Review notes` section with exact corrections.
 
 ## Workflow
 
@@ -76,3 +78,12 @@ Statuses: `draft` → `ready` → `wip` → `review` → `done` / `cancelled`.
 2. When asked to implement, write a spec in `specs/` (draft → ready).
 3. After Codex completes (`wip` → `review`), review the diff and rename accordingly.
 4. Update `docs/` or ADRs when architectural decisions are made.
+
+## Progress Reporting
+
+When updating progress reports (e.g. `docs/09_План-работ/README.md`) always include:
+- Overall MVP completion percentage.
+- Backend vs frontend breakdown (per service / per UI).
+- User scenario coverage section (🟢 / 🟡 / 🔴 per сценарий).
+
+Base completion statistics on spec-file analysis (`specs/NNNN.STATUS.*.md` counts and phase weights) plus verification of actual code in the repo — not on estimates.

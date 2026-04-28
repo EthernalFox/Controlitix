@@ -1,0 +1,1830 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Controlitix · Design System (Liquid Glass)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+:root {
+  /* Light theme tokens — from Design-System.md */
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F8F9FA;
+  --bg-surface: #FFFFFF;
+  --bg-elevated: #F1F3F5;
+  --border-default: #DEE2E6;
+  --text-primary: #212529;
+  --text-secondary: #495057;
+  --text-muted: #868E96;
+  --accent-blue: #228BE6;
+  --canvas-bg: #F5F5F5;
+  --toolbar-bg: #FAFAFA;
+
+  /* Alarm semantics — same in both themes */
+  --alarm-ok: #4CAF50;
+  --alarm-warn: #FFA726;
+  --alarm-crit: #EF5350;
+  --alarm-uncertain: #42A5F5;
+  --alarm-bad: #78909C;
+  --alarm-comm: #546E7A;
+  --alarm-offline: #37474F;
+  --alarm-ack: #7E57C2;
+
+  /* Spacing */
+  --sp-xs: 4px;
+  --sp-sm: 8px;
+  --sp-md: 16px;
+  --sp-lg: 24px;
+  --sp-xl: 32px;
+
+  /* Liquid glass — light */
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-bg-strong: rgba(255, 255, 255, 0.72);
+  --glass-bg-soft: rgba(255, 255, 255, 0.32);
+  --glass-border: rgba(255, 255, 255, 0.7);
+  --glass-border-inner: rgba(34, 139, 230, 0.08);
+  --glass-shadow: 0 1px 0 rgba(255,255,255,0.7) inset, 0 -1px 0 rgba(0,0,0,0.04) inset, 0 8px 32px -8px rgba(15, 23, 42, 0.18), 0 2px 8px -2px rgba(15, 23, 42, 0.08);
+  --glass-blur: saturate(180%) blur(20px);
+  --glass-highlight: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 50%);
+
+  /* Ambient backdrop — pastel orbs to make glass visible */
+  --orb-1: #BAD7FF;
+  --orb-2: #FFD6E8;
+  --orb-3: #C8F0DC;
+  --orb-4: #FFE4B0;
+}
+
+[data-theme="dark"] {
+  --bg-primary: #111422;
+  --bg-secondary: #1A1D2E;
+  --bg-surface: #232740;
+  --bg-elevated: #2D3154;
+  --border-default: #3A3F5C;
+  --text-primary: #E8EAF0;
+  --text-secondary: #9CA3B8;
+  --text-muted: #6B7394;
+  --accent-blue: #4C9AFF;
+  --canvas-bg: #111422;
+  --toolbar-bg: #232740;
+
+  --glass-bg: rgba(35, 39, 64, 0.55);
+  --glass-bg-strong: rgba(35, 39, 64, 0.78);
+  --glass-bg-soft: rgba(26, 29, 46, 0.4);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-inner: rgba(76, 154, 255, 0.18);
+  --glass-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 -1px 0 rgba(0,0,0,0.3) inset, 0 12px 40px -8px rgba(0,0,0,0.5), 0 2px 8px -2px rgba(0,0,0,0.3);
+  --glass-highlight: linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0) 60%);
+
+  --orb-1: #1E3A6B;
+  --orb-2: #4C2A52;
+  --orb-3: #1F4738;
+  --orb-4: #5A4019;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Ambient backdrop with blurred orbs */
+.backdrop {
+  position: fixed; inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.backdrop::before, .backdrop::after,
+.backdrop .orb {
+  content: ""; position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.85;
+}
+.backdrop::before {
+  width: 600px; height: 600px;
+  background: var(--orb-1);
+  top: -120px; left: -100px;
+}
+.backdrop::after {
+  width: 520px; height: 520px;
+  background: var(--orb-2);
+  top: 40%; right: -120px;
+}
+.backdrop .orb-c {
+  width: 480px; height: 480px;
+  background: var(--orb-3);
+  bottom: -120px; left: 30%;
+}
+.backdrop .orb-d {
+  width: 380px; height: 380px;
+  background: var(--orb-4);
+  top: 20%; left: 40%;
+  opacity: 0.6;
+}
+[data-theme="dark"] .backdrop::before,
+[data-theme="dark"] .backdrop::after,
+[data-theme="dark"] .backdrop .orb {
+  opacity: 0.7;
+  filter: blur(100px);
+}
+
+/* Liquid glass primitive */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: 14px;
+  position: relative;
+  overflow: hidden;
+}
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--glass-highlight);
+  pointer-events: none;
+  border-radius: inherit;
+}
+.glass-strong { background: var(--glass-bg-strong); }
+.glass-soft { background: var(--glass-bg-soft); }
+.glass-flat { border-radius: 4px; }
+
+/* Topbar */
+.topbar {
+  position: sticky; top: 12px; z-index: 50;
+  margin: 12px 16px 0;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px;
+  border-radius: 16px;
+}
+.topbar-logo {
+  display: flex; align-items: center; gap: 10px;
+  font-weight: 600; font-size: 14px;
+  color: var(--text-primary);
+}
+.topbar-logo .mark {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #4C9AFF 0%, #228BE6 60%, #7E57C2 100%);
+  position: relative;
+  box-shadow: 0 2px 6px rgba(34,139,230,0.4), inset 0 1px 0 rgba(255,255,255,0.4);
+}
+.topbar-logo .mark::after {
+  content: ""; position: absolute;
+  inset: 6px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.22);
+  backdrop-filter: blur(4px);
+}
+.topbar-tag {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border-inner);
+}
+.topbar-nav {
+  display: flex; gap: 4px;
+  margin-left: 8px;
+  background: var(--glass-bg-soft);
+  border-radius: 999px;
+  padding: 4px;
+  border: 1px solid var(--glass-border-inner);
+}
+.topbar-nav button {
+  border: 0; background: transparent;
+  font-family: inherit; font-size: 13px;
+  color: var(--text-secondary);
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.topbar-nav button:hover { color: var(--text-primary); }
+.topbar-nav button.active {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 2px 8px rgba(34,139,230,0.12);
+}
+[data-theme="dark"] .topbar-nav button.active {
+  background: rgba(76, 154, 255, 0.18);
+  color: #E8EAF0;
+  box-shadow: 0 0 0 1px rgba(76,154,255,0.3) inset;
+}
+.topbar-spacer { flex: 1; }
+.theme-toggle {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border-inner);
+  border-radius: 999px;
+  padding: 4px;
+}
+.theme-toggle button {
+  border: 0; background: transparent;
+  font-family: inherit;
+  display: flex; align-items: center; gap: 4px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.theme-toggle button.active {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+[data-theme="dark"] .theme-toggle button.active {
+  background: rgba(76,154,255,0.2);
+  color: #E8EAF0;
+}
+
+main { position: relative; z-index: 1; padding: 24px 16px 80px; max-width: 1440px; margin: 0 auto; }
+
+.section-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin: 32px 4px 14px;
+}
+.section-head h2 {
+  font-size: 22px; font-weight: 600; margin: 0;
+  letter-spacing: -0.01em;
+}
+.section-head .meta {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.section-head .desc {
+  font-size: 13px; color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.grid { display: grid; gap: 16px; }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+/* Card chrome */
+.card { padding: 18px; border-radius: 14px; }
+.card-title {
+  font-size: 12px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin: 0 0 12px;
+}
+.card h3 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+.card .sub { font-size: 12px; color: var(--text-secondary); }
+
+.token-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--glass-border-inner);
+  font-size: 12px;
+}
+.token-row:last-child { border-bottom: 0; }
+.token-name { font-family: "JetBrains Mono", monospace; color: var(--text-secondary); }
+.token-val { display: flex; align-items: center; gap: 8px; }
+.token-swatch { width: 18px; height: 18px; border-radius: 6px; border: 1px solid var(--glass-border-inner); }
+.token-hex { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--text-muted); }
+
+/* Color tile (alarm) */
+.alarm-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.alarm-tile {
+  border-radius: 12px;
+  padding: 14px;
+  display: flex; flex-direction: column; gap: 8px;
+  position: relative;
+  overflow: hidden;
+  min-height: 96px;
+}
+.alarm-tile::before {
+  content: ""; position: absolute; inset: 0;
+  background: var(--tile-color);
+  opacity: 0.16;
+}
+.alarm-tile::after {
+  content: ""; position: absolute; inset: 0;
+  background: var(--glass-highlight);
+}
+.alarm-tile > * { position: relative; z-index: 1; }
+.alarm-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--tile-color); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tile-color) 25%, transparent); }
+.alarm-tile .name { font-size: 12px; font-weight: 600; }
+.alarm-tile .hex { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--text-muted); }
+.alarm-tile .desc { font-size: 11px; color: var(--text-secondary); margin-top: auto; }
+
+/* Type specimens */
+.type-block { display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 14px; }
+.type-row { display: flex; align-items: baseline; gap: 16px; padding: 8px 0; border-bottom: 1px dashed var(--glass-border-inner); }
+.type-row:last-child { border-bottom: 0; }
+.type-row .meta { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--text-muted); width: 110px; }
+.t-h1 { font-size: 32px; font-weight: 600; letter-spacing: -0.02em; }
+.t-h2 { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+.t-h3 { font-size: 16px; font-weight: 600; }
+.t-body { font-size: 14px; }
+.t-sm { font-size: 13px; }
+.t-xs { font-size: 11px; color: var(--text-secondary); }
+.t-mono { font-family: "JetBrains Mono", monospace; font-size: 13px; }
+
+/* Buttons */
+.btn {
+  font-family: inherit;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  position: relative;
+  overflow: hidden;
+}
+.btn::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0));
+  pointer-events: none;
+}
+.btn-primary {
+  background: linear-gradient(180deg, rgba(76,154,255,0.85), rgba(34,139,230,0.78));
+  color: #fff;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-color: rgba(255,255,255,0.35);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.45) inset, 0 -1px 0 rgba(0,0,0,0.08) inset, 0 6px 18px -6px rgba(34,139,230,0.45), 0 1px 2px rgba(0,0,0,0.06);
+}
+.btn-primary:hover { filter: brightness(1.06); transform: translateY(-1px); }
+[data-theme="dark"] .btn-primary {
+  background: linear-gradient(180deg, rgba(76,154,255,0.55), rgba(34,139,230,0.45));
+  border-color: rgba(255,255,255,0.18);
+  color: #F4F8FF;
+}
+.btn-secondary {
+  background: var(--glass-bg);
+  color: var(--accent-blue);
+  border-color: color-mix(in srgb, var(--accent-blue) 28%, transparent);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.4) inset, 0 1px 2px rgba(15,23,42,0.05);
+}
+[data-theme="dark"] .btn-secondary {
+  background: rgba(76,154,255,0.1);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset;
+}
+.btn-secondary:hover { background: var(--glass-bg-strong); }
+.btn-danger {
+  background: linear-gradient(180deg, rgba(244,105,99,0.85), rgba(239,83,80,0.78));
+  color: #fff;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-color: rgba(255,255,255,0.3);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.4) inset, 0 6px 18px -6px rgba(239,83,80,0.4);
+}
+.btn-ghost {
+  background: var(--glass-bg-soft);
+  color: var(--accent-blue);
+  border-color: var(--glass-border-inner);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.btn-ghost:hover { background: var(--glass-bg); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-icon { padding: 6px; width: 30px; height: 30px; justify-content: center; }
+.btn[disabled] { opacity: 0.4; cursor: not-allowed; }
+
+/* Input */
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field-label { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+.field-hint { font-size: 11px; color: var(--text-muted); }
+.field-error { font-size: 11px; color: var(--alarm-crit); }
+.input {
+  font-family: inherit; font-size: 13px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border-inner);
+  color: var(--text-primary);
+  transition: all 0.15s ease;
+  outline: none;
+  width: 100%;
+}
+.input::placeholder { color: var(--text-muted); }
+.input:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-blue) 18%, transparent);
+}
+.input.error {
+  border-color: var(--alarm-crit);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--alarm-crit) 18%, transparent);
+}
+.input-mono { font-family: "JetBrains Mono", monospace; }
+
+/* Badge */
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-family: "JetBrains Mono", monospace;
+  letter-spacing: 0.02em;
+  position: relative;
+  border: 1px solid var(--bg-color, transparent);
+  background: color-mix(in srgb, var(--bg-color) 15%, transparent);
+  color: var(--bg-color);
+}
+.badge .icon { width: 8px; height: 8px; border-radius: 50%; background: var(--bg-color); flex-shrink: 0; }
+.badge-square .icon { border-radius: 1px; }
+.badge-tri .icon { background: transparent; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 8px solid var(--bg-color); border-radius: 0; }
+.badge-x { background: var(--bg-color); color: #fff; }
+
+/* Switch */
+.swt {
+  display: inline-flex; align-items: center; gap: 8px;
+  cursor: pointer; user-select: none;
+  font-size: 12px; color: var(--text-secondary);
+}
+.swt-track {
+  width: 32px; height: 18px;
+  border-radius: 999px;
+  background: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border-inner);
+  position: relative;
+  transition: all 0.2s ease;
+}
+.swt-track::after {
+  content: ""; position: absolute;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  top: 2px; left: 2px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  transition: all 0.2s ease;
+}
+.swt.on .swt-track {
+  background: linear-gradient(180deg, #3A9BEE, #228BE6);
+  border-color: transparent;
+}
+.swt.on .swt-track::after { left: 16px; }
+
+/* Tabs */
+.tabs {
+  display: flex; gap: 4px;
+  background: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border-inner);
+  padding: 4px;
+  border-radius: 10px;
+}
+.tab {
+  flex: 1;
+  padding: 6px 12px;
+  font-size: 12px; font-weight: 500;
+  color: var(--text-secondary);
+  border-radius: 7px;
+  cursor: pointer;
+  text-align: center;
+  border: 0; background: transparent;
+  font-family: inherit;
+}
+.tab.active {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+[data-theme="dark"] .tab.active {
+  background: rgba(76,154,255,0.18);
+  color: #E8EAF0;
+}
+
+/* Code block */
+.codebox {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  background: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border-inner);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--text-secondary);
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* AppShell mock — list mode */
+.shell {
+  border-radius: 16px;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: 56px 1fr;
+  height: 540px;
+  position: relative;
+}
+.shell-editor {
+  grid-template-columns: 240px 1fr 280px;
+  grid-template-rows: 56px 1fr 48px;
+  height: 600px;
+}
+.shell-header, .shell-navbar, .shell-panel, .shell-aside, .shell-footer, .shell-main {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  position: relative;
+}
+.shell-header {
+  grid-column: 1 / -1;
+  border-radius: 16px 16px 0 0;
+  border-bottom: 1px solid var(--glass-border-inner);
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 16px;
+  border-left: 0; border-right: 0; border-top: 0;
+}
+.shell-navbar, .shell-panel {
+  border-left: 0; border-bottom: 0; border-top: 0;
+  border-right: 1px solid var(--glass-border-inner);
+  padding: 12px;
+  overflow: auto;
+}
+.shell-aside {
+  border-right: 0; border-bottom: 0; border-top: 0;
+  border-left: 1px solid var(--glass-border-inner);
+  padding: 0;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.shell-main {
+  border: 0;
+  background: var(--bg-secondary);
+  padding: 18px;
+  overflow: auto;
+}
+.shell-editor .shell-main {
+  background:
+    radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--orb-1) 80%, transparent) 0, transparent 40%),
+    radial-gradient(circle at 70% 70%, color-mix(in srgb, var(--orb-3) 80%, transparent) 0, transparent 40%),
+    var(--canvas-bg);
+  padding: 0;
+  position: relative;
+}
+.shell-footer {
+  grid-column: 1 / -1;
+  border-radius: 0 0 16px 16px;
+  border-top: 1px solid var(--glass-border-inner);
+  border-left: 0; border-right: 0; border-bottom: 0;
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 16px;
+}
+
+.crumbs {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.crumbs .sep { color: var(--text-muted); }
+.crumbs .cur { color: var(--text-primary); font-weight: 500; }
+
+.nav-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  margin-bottom: 2px;
+}
+.nav-item:hover { background: var(--glass-bg-soft); color: var(--text-primary); }
+.nav-item.active {
+  background: linear-gradient(180deg, rgba(34,139,230,0.18), rgba(34,139,230,0.08));
+  color: var(--accent-blue);
+  font-weight: 500;
+  border: 1px solid color-mix(in srgb, var(--accent-blue) 25%, transparent);
+}
+[data-theme="dark"] .nav-item.active {
+  background: linear-gradient(180deg, rgba(76,154,255,0.22), rgba(76,154,255,0.08));
+  color: #9DC1FF;
+}
+.nav-section {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-muted); font-weight: 600;
+  padding: 12px 10px 6px;
+}
+.nav-tree-toggle {
+  width: 12px; display: inline-flex; justify-content: center;
+  font-size: 10px; color: var(--text-muted);
+}
+
+/* Editor mock specifics */
+.shape-tile {
+  display: flex; align-items: center; justify-content: center;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border-inner);
+  cursor: grab;
+  color: var(--text-secondary);
+  position: relative;
+  transition: all 0.15s ease;
+}
+.shape-tile:hover { color: var(--accent-blue); border-color: color-mix(in srgb, var(--accent-blue) 35%, transparent); transform: translateY(-1px); }
+.shape-tile.active { background: linear-gradient(180deg, rgba(34,139,230,0.18), rgba(34,139,230,0.08)); color: var(--accent-blue); border-color: color-mix(in srgb, var(--accent-blue) 40%, transparent); }
+.shape-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+
+.layer-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.layer-item:hover { background: var(--glass-bg-soft); }
+.layer-item.active { background: rgba(34,139,230,0.12); color: var(--text-primary); }
+.layer-item .icon { width: 14px; height: 14px; opacity: 0.7; }
+.layer-item .name { flex: 1; font-family: "JetBrains Mono", monospace; font-size: 11px; }
+
+.canvas-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--text-muted) 18%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--text-muted) 18%, transparent) 1px, transparent 1px);
+  background-size: 20px 20px;
+  opacity: 0.5;
+}
+.canvas-figs {
+  position: absolute; inset: 0;
+}
+.fig {
+  position: absolute;
+  border: 2px solid #228BE6;
+  background: rgba(34,139,230,0.18);
+  backdrop-filter: blur(4px);
+  border-radius: 4px;
+}
+.fig.selected {
+  outline: 2px dashed var(--accent-blue);
+  outline-offset: 4px;
+}
+.fig-handles { position: absolute; inset: -6px; pointer-events: none; }
+.fig-handle {
+  position: absolute; width: 8px; height: 8px;
+  background: #fff;
+  border: 1.5px solid var(--accent-blue);
+  border-radius: 2px;
+}
+
+/* Aside tabs */
+.aside-tabs {
+  display: flex;
+  padding: 12px 12px 0;
+  gap: 4px;
+  border-bottom: 1px solid var(--glass-border-inner);
+}
+.aside-tab {
+  padding: 8px 12px;
+  font-size: 12px; font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.aside-tab.active {
+  color: var(--accent-blue);
+  border-bottom-color: var(--accent-blue);
+}
+
+.prop-section { padding: 12px; }
+.prop-section h4 {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-muted); font-weight: 600; margin: 0 0 8px;
+}
+.prop-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+.prop-row .label { font-size: 11px; color: var(--text-muted); width: 24px; font-family: "JetBrains Mono", monospace; }
+.prop-input {
+  flex: 1; min-width: 0;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border-inner);
+  color: var(--text-primary);
+  outline: none;
+}
+.prop-input:focus { border-color: var(--accent-blue); }
+.color-picker {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 8px;
+  background: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border-inner);
+  border-radius: 6px;
+  flex: 1;
+}
+.color-swatch { width: 16px; height: 16px; border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1); }
+.color-hex { font-family: "JetBrains Mono", monospace; font-size: 11px; }
+
+/* Login mock */
+.login-stage {
+  height: 540px;
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  background:
+    radial-gradient(circle at 20% 30%, var(--orb-1) 0, transparent 40%),
+    radial-gradient(circle at 80% 70%, var(--orb-2) 0, transparent 40%),
+    radial-gradient(circle at 50% 50%, var(--orb-3) 0, transparent 50%),
+    var(--bg-secondary);
+}
+.login-card {
+  width: 380px;
+  padding: 32px;
+  border-radius: 18px;
+}
+.login-card h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01em; }
+.login-card .lead { font-size: 13px; color: var(--text-secondary); margin: 0 0 20px; }
+
+/* Table */
+.tbl {
+  width: 100%; border-collapse: separate; border-spacing: 0;
+  font-size: 12px;
+}
+.tbl th, .tbl td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--glass-border-inner);
+}
+.tbl th {
+  font-size: 10px; text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  font-weight: 600;
+  background: var(--glass-bg-soft);
+}
+.tbl td.mono, .tbl th.mono { font-family: "JetBrains Mono", monospace; font-size: 11px; }
+.tbl tr:hover td { background: var(--glass-bg-soft); }
+
+/* Page section spacing */
+.page { display: none; }
+.page.active { display: block; }
+
+.note {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border-inner);
+  padding: 10px 14px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+.note strong { color: var(--text-primary); }
+
+/* Tweaks panel chrome */
+.tweaks-fab {
+  position: fixed; bottom: 18px; right: 18px;
+  z-index: 60;
+  display: flex; align-items: center; gap: 6px;
+  font-family: inherit;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 0;
+  cursor: pointer;
+  font-size: 12px; font-weight: 600;
+  background: linear-gradient(180deg, #3A9BEE, #228BE6);
+  color: #fff;
+  box-shadow: 0 4px 16px -4px rgba(34,139,230,0.5), 0 1px 0 rgba(255,255,255,0.3) inset;
+}
+
+</style>
+</head>
+<body data-theme="light">
+<div class="backdrop"><div class="orb orb-c"></div><div class="orb orb-d"></div></div>
+
+<div class="topbar glass">
+  <div class="topbar-logo">
+    <div class="mark"></div>
+    <div>
+      <div>Controlitix</div>
+      <div style="font-size:10px;color:var(--text-muted);font-weight:500;">Design System · Liquid Glass</div>
+    </div>
+  </div>
+  <span class="topbar-tag">v0.1 · editor-ui</span>
+  <nav class="topbar-nav">
+    <button data-page="foundations" class="active">Foundations</button>
+    <button data-page="components">Components</button>
+    <button data-page="layout">Layout</button>
+    <button data-page="editor">Editor</button>
+    <button data-page="screens">Screens</button>
+  </nav>
+  <div class="topbar-spacer"></div>
+  <div class="theme-toggle">
+    <button data-theme-set="light" class="active">☀ Light</button>
+    <button data-theme-set="dark">☾ Dark</button>
+  </div>
+</div>
+
+<main>
+
+<!-- ============ FOUNDATIONS ============ -->
+<section class="page active" data-page="foundations">
+
+  <div class="section-head">
+    <div>
+      <h2>Foundations</h2>
+      <div class="desc">Токены, типографика, spacing, и семантика тревог. Источник правды — Design-System.md.</div>
+    </div>
+    <div class="meta">01 / 05</div>
+  </div>
+
+  <div class="note">
+    <strong>Liquid glass overlay.</strong> Поверх плоской SCADA-палитры мы добавляем <em>only chrome-level</em> жидкое стекло — на header, panel, modal, toolbar.
+    Карточки данных, таблицы и значения остаются flat и плотными — это требование HMI к читаемости.
+  </div>
+
+  <div class="grid grid-2">
+    <div class="glass card">
+      <div class="card-title">Light theme · editor-ui · default</div>
+      <div class="token-row"><span class="token-name">--bg-primary</span><span class="token-val"><span class="token-swatch" style="background:#FFFFFF"></span><span class="token-hex">#FFFFFF</span></span></div>
+      <div class="token-row"><span class="token-name">--bg-secondary</span><span class="token-val"><span class="token-swatch" style="background:#F8F9FA"></span><span class="token-hex">#F8F9FA</span></span></div>
+      <div class="token-row"><span class="token-name">--bg-surface</span><span class="token-val"><span class="token-swatch" style="background:#FFFFFF"></span><span class="token-hex">#FFFFFF</span></span></div>
+      <div class="token-row"><span class="token-name">--bg-elevated</span><span class="token-val"><span class="token-swatch" style="background:#F1F3F5"></span><span class="token-hex">#F1F3F5</span></span></div>
+      <div class="token-row"><span class="token-name">--border-default</span><span class="token-val"><span class="token-swatch" style="background:#DEE2E6"></span><span class="token-hex">#DEE2E6</span></span></div>
+      <div class="token-row"><span class="token-name">--text-primary</span><span class="token-val"><span class="token-swatch" style="background:#212529"></span><span class="token-hex">#212529</span></span></div>
+      <div class="token-row"><span class="token-name">--text-secondary</span><span class="token-val"><span class="token-swatch" style="background:#495057"></span><span class="token-hex">#495057</span></span></div>
+      <div class="token-row"><span class="token-name">--accent-blue</span><span class="token-val"><span class="token-swatch" style="background:#228BE6"></span><span class="token-hex">#228BE6</span></span></div>
+      <div class="token-row"><span class="token-name">--canvas-bg</span><span class="token-val"><span class="token-swatch" style="background:#F5F5F5"></span><span class="token-hex">#F5F5F5</span></span></div>
+    </div>
+
+    <div class="glass card">
+      <div class="card-title">Dark theme · viewer-ui default · editor alt</div>
+      <div class="token-row"><span class="token-name">--bg-primary</span><span class="token-val"><span class="token-swatch" style="background:#111422"></span><span class="token-hex">#111422</span></span></div>
+      <div class="token-row"><span class="token-name">--bg-secondary</span><span class="token-val"><span class="token-swatch" style="background:#1A1D2E"></span><span class="token-hex">#1A1D2E</span></span></div>
+      <div class="token-row"><span class="token-name">--bg-surface</span><span class="token-val"><span class="token-swatch" style="background:#232740"></span><span class="token-hex">#232740</span></span></div>
+      <div class="token-row"><span class="token-name">--bg-elevated</span><span class="token-val"><span class="token-swatch" style="background:#2D3154"></span><span class="token-hex">#2D3154</span></span></div>
+      <div class="token-row"><span class="token-name">--border-default</span><span class="token-val"><span class="token-swatch" style="background:#3A3F5C"></span><span class="token-hex">#3A3F5C</span></span></div>
+      <div class="token-row"><span class="token-name">--text-primary</span><span class="token-val"><span class="token-swatch" style="background:#E8EAF0"></span><span class="token-hex">#E8EAF0</span></span></div>
+      <div class="token-row"><span class="token-name">--text-secondary</span><span class="token-val"><span class="token-swatch" style="background:#9CA3B8"></span><span class="token-hex">#9CA3B8</span></span></div>
+      <div class="token-row"><span class="token-name">--accent-blue</span><span class="token-val"><span class="token-swatch" style="background:#4C9AFF"></span><span class="token-hex">#4C9AFF</span></span></div>
+      <div class="token-row"><span class="token-name">--canvas-bg</span><span class="token-val"><span class="token-swatch" style="background:#111422"></span><span class="token-hex">#111422</span></span></div>
+    </div>
+  </div>
+
+  <div class="section-head">
+    <div>
+      <h2>Цветовая семантика тревог</h2>
+      <div class="desc">8 состояний, идентичных в обеих темах. Цвет дублируется иконкой/паттерном (требование HMI).</div>
+    </div>
+    <div class="meta">light + dark · invariant</div>
+  </div>
+
+  <div class="alarm-grid">
+    <div class="alarm-tile glass" style="--tile-color:#4CAF50">
+      <div style="display:flex;align-items:center;gap:8px;"><span class="alarm-dot"></span><span class="name">OK / Normal</span></div>
+      <span class="hex">#4CAF50</span>
+      <span class="desc">Значение в норме</span>
+    </div>
+    <div class="alarm-tile glass" style="--tile-color:#FFA726">
+      <div style="display:flex;align-items:center;gap:8px;"><span style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:11px solid #FFA726;"></span><span class="name">Lo / Hi (Warning)</span></div>
+      <span class="hex">#FFA726</span>
+      <span class="desc">Превышение Lo / Hi уставки</span>
+    </div>
+    <div class="alarm-tile glass" style="--tile-color:#EF5350">
+      <div style="display:flex;align-items:center;gap:8px;"><span style="width:10px;height:10px;background:#EF5350;transform:rotate(45deg);"></span><span class="name">LoLo / HiHi (Alarm)</span></div>
+      <span class="hex">#EF5350</span>
+      <span class="desc">Аварийное превышение · может мигать</span>
+    </div>
+    <div class="alarm-tile glass" style="--tile-color:#42A5F5">
+      <div style="display:flex;align-items:center;gap:8px;"><span style="width:10px;height:10px;border:2px solid #42A5F5;border-radius:50%;"></span><span class="name">Uncertain</span></div>
+      <span class="hex">#42A5F5</span>
+      <span class="desc">Качество неопределённо</span>
+    </div>
+    <div class="alarm-tile glass" style="--tile-color:#78909C">
+      <div style="display:flex;align-items:center;gap:8px;"><span style="width:10px;height:2px;background:#78909C;display:inline-block;box-shadow:0 4px 0 #78909C,0 -4px 0 #78909C;"></span><span class="name">Bad Quality</span></div>
+      <span class="hex">#78909C</span>
+      <span class="desc">Данные недостоверны</span>
+    </div>
+    <div class="alarm-tile glass" style="--tile-color:#546E7A">
+      <div style="display:flex;align-items:center;gap:8px;"><span style="width:11px;height:11px;border-radius:50%;border:1.5px solid #546E7A;border-right-color:transparent;border-top-color:transparent;"></span><span class="name">Comm Loss</span></div>
+      <span class="hex">#546E7A</span>
+      <span class="desc">Потеря связи с устройством</span>
+    </div>
+    <div class="alarm-tile glass" style="--tile-color:#37474F">
+      <div style="display:flex;align-items:center;gap:8px;"><span style="width:10px;height:10px;background:#37474F;border-radius:2px;opacity:0.6;"></span><span class="name">Offline</span></div>
+      <span class="hex">#37474F</span>
+      <span class="desc">Устройство выключено</span>
+    </div>
+    <div class="alarm-tile glass" style="--tile-color:#7E57C2">
+      <div style="display:flex;align-items:center;gap:8px;"><span style="width:10px;height:10px;background:#7E57C2;border-radius:50%;box-shadow:inset 2px -1px 0 rgba(255,255,255,0.6);"></span><span class="name">Acknowledged</span></div>
+      <span class="hex">#7E57C2</span>
+      <span class="desc">Тревога квитирована</span>
+    </div>
+  </div>
+
+  <div class="section-head">
+    <div>
+      <h2>Типографика</h2>
+      <div class="desc">Inter — UI / заголовки. JetBrains Mono — значения тегов, координаты, идентификаторы.</div>
+    </div>
+    <div class="meta">2 семейства · 5 размеров</div>
+  </div>
+
+  <div class="grid grid-2">
+    <div class="glass card type-block">
+      <div class="card-title">Inter · UI</div>
+      <div class="type-row"><span class="meta">xl · 20 · 600</span><span class="t-h2">Карточка объекта</span></div>
+      <div class="type-row"><span class="meta">lg · 16 · 600</span><span class="t-h3">Контроллер котельной №3</span></div>
+      <div class="type-row"><span class="meta">md · 14 · 400</span><span class="t-body">Основной текст параграфов и форм</span></div>
+      <div class="type-row"><span class="meta">sm · 13 · 600</span><span class="t-sm" style="font-weight:600">Заголовок секции в панели</span></div>
+      <div class="type-row"><span class="meta">xs · 11</span><span class="t-xs">Подсказки, бейджи, метаданные</span></div>
+    </div>
+    <div class="glass card type-block">
+      <div class="card-title">JetBrains Mono · значения</div>
+      <div class="type-row"><span class="meta">val · 20</span><span style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:500;">  72.4 °C</span></div>
+      <div class="type-row"><span class="meta">val · 16</span><span style="font-family:'JetBrains Mono',monospace;font-size:16px;">1013.25 hPa</span></div>
+      <div class="type-row"><span class="meta">coord · 13</span><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text-secondary)">x: 142.0  y: 88.5</span></div>
+      <div class="type-row"><span class="meta">id · 11</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted)">obj_8f3a · dev_modbus_01 · tag_temp_in</span></div>
+      <div class="type-row"><span class="meta">addr</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;">HR · 40001 · UInt16</span></div>
+    </div>
+  </div>
+
+  <div class="section-head">
+    <div>
+      <h2>Spacing · Radius · Glass</h2>
+      <div class="desc">8px-сетка. Radius="sm" (4px) для плоских поверхностей; 12–16px для glass-chrome.</div>
+    </div>
+    <div class="meta">scale</div>
+  </div>
+
+  <div class="grid grid-3">
+    <div class="glass card">
+      <div class="card-title">Spacing</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:12px;font-size:12px;"><span style="font-family:'JetBrains Mono',monospace;width:32px;color:var(--text-muted);">xs</span><span style="height:8px;width:4px;background:var(--accent-blue);border-radius:2px"></span><span style="color:var(--text-secondary)">4px · gap внутри связанных элементов</span></div>
+        <div style="display:flex;align-items:center;gap:12px;font-size:12px;"><span style="font-family:'JetBrains Mono',monospace;width:32px;color:var(--text-muted);">sm</span><span style="height:8px;width:8px;background:var(--accent-blue);border-radius:2px"></span><span style="color:var(--text-secondary)">8px · между элементами секции</span></div>
+        <div style="display:flex;align-items:center;gap:12px;font-size:12px;"><span style="font-family:'JetBrains Mono',monospace;width:32px;color:var(--text-muted);">md</span><span style="height:8px;width:16px;background:var(--accent-blue);border-radius:2px"></span><span style="color:var(--text-secondary)">16px · padding панелей и карточек</span></div>
+        <div style="display:flex;align-items:center;gap:12px;font-size:12px;"><span style="font-family:'JetBrains Mono',monospace;width:32px;color:var(--text-muted);">lg</span><span style="height:8px;width:24px;background:var(--accent-blue);border-radius:2px"></span><span style="color:var(--text-secondary)">24px · между секциями</span></div>
+        <div style="display:flex;align-items:center;gap:12px;font-size:12px;"><span style="font-family:'JetBrains Mono',monospace;width:32px;color:var(--text-muted);">xl</span><span style="height:8px;width:32px;background:var(--accent-blue);border-radius:2px"></span><span style="color:var(--text-secondary)">32px · крупные разделы</span></div>
+      </div>
+    </div>
+    <div class="glass card">
+      <div class="card-title">Radius</div>
+      <div style="display:flex;align-items:flex-end;gap:10px;height:80px;">
+        <div style="flex:1;height:60px;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:2px;display:flex;align-items:flex-end;justify-content:center;padding:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted)">xs · 2</div>
+        <div style="flex:1;height:60px;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:4px;display:flex;align-items:flex-end;justify-content:center;padding:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted)">sm · 4</div>
+        <div style="flex:1;height:60px;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:8px;display:flex;align-items:flex-end;justify-content:center;padding:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted)">md · 8</div>
+        <div style="flex:1;height:60px;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:14px;display:flex;align-items:flex-end;justify-content:center;padding:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted)">lg · 14</div>
+      </div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:10px;">
+        <strong style="color:var(--text-primary)">sm (4px)</strong> — defaultRadius Mantine для всех контролов и карточек данных.<br/>
+        <strong style="color:var(--text-primary)">lg (14px)</strong> — chrome лейаута: AppShell-слоты, modal, popover.
+      </div>
+    </div>
+    <div class="glass card">
+      <div class="card-title">Glass material</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div class="glass" style="padding:10px 12px;border-radius:10px;font-size:11px;"><span style="font-family:'JetBrains Mono',monospace;color:var(--text-muted)">.glass</span> · 55% bg · blur 20px</div>
+        <div class="glass glass-strong" style="padding:10px 12px;border-radius:10px;font-size:11px;"><span style="font-family:'JetBrains Mono',monospace;color:var(--text-muted)">.glass-strong</span> · 72% bg · для inputs</div>
+        <div class="glass glass-soft" style="padding:10px 12px;border-radius:10px;font-size:11px;"><span style="font-family:'JetBrains Mono',monospace;color:var(--text-muted)">.glass-soft</span> · 32% bg · подложки</div>
+      </div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:10px;">
+        Применяется только на chrome (header, panel, aside, footer, modal). Карточки данных и таблицы остаются flat.
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ============ COMPONENTS ============ -->
+<section class="page" data-page="components">
+
+  <div class="section-head">
+    <div>
+      <h2>Components</h2>
+      <div class="desc">Mantine 8 + кастомные варианты Controlitix. Реэкспорт через <code style="font-family:'JetBrains Mono',monospace;font-size:12px;">shared/ui/components</code>.</div>
+    </div>
+    <div class="meta">02 / 05</div>
+  </div>
+
+  <!-- Buttons -->
+  <div class="grid grid-2">
+    <div class="glass card">
+      <div class="card-title">Button · 4 варианта</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+        <button class="btn btn-primary">Опубликовать</button>
+        <button class="btn btn-secondary">Превью</button>
+        <button class="btn btn-danger">Удалить</button>
+        <button class="btn btn-ghost">Отмена</button>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+        <button class="btn btn-primary btn-sm">size="xs"</button>
+        <button class="btn btn-secondary btn-sm">size="xs"</button>
+        <button class="btn btn-primary" disabled>disabled</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-secondary btn-icon" title="Undo">↶</button>
+        <button class="btn btn-secondary btn-icon" title="Redo">↷</button>
+        <button class="btn btn-ghost btn-icon">⚙</button>
+        <button class="btn btn-ghost btn-icon">⊞</button>
+        <button class="btn btn-ghost btn-icon">↗</button>
+      </div>
+      <div class="codebox" style="margin-top:14px">{`<Button variant="primary">Опубликовать</Button>
+<Button variant="secondary">Превью</Button>
+<Button variant="danger">Удалить</Button>
+<Button variant="ghost">Отмена</Button>`}</div>
+    </div>
+
+    <div class="glass card">
+      <div class="card-title">Input · TextInput / NumberInput / Select</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="field">
+          <label class="field-label">Имя объекта</label>
+          <input class="input" value="Котельная №3 · Северная" />
+          <span class="field-hint">До 60 символов</span>
+        </div>
+        <div class="field">
+          <label class="field-label">IP адрес устройства</label>
+          <input class="input input-mono" value="10.18.4.21" placeholder="192.168.1.1" />
+        </div>
+        <div class="field">
+          <label class="field-label">Адрес регистра</label>
+          <input class="input input-mono error" value="-1" />
+          <span class="field-error">Должен быть в диапазоне 1 — 65535</span>
+        </div>
+        <div class="field">
+          <label class="field-label">Протокол</label>
+          <div class="input" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
+            <span style="display:flex;gap:6px;align-items:center;"><span style="width:6px;height:6px;background:var(--alarm-ok);border-radius:50%"></span>Modbus TCP</span>
+            <span style="color:var(--text-muted);font-size:10px">▾</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Badges -->
+  <div class="section-head">
+    <div><h3 style="margin:0;font-size:16px;font-weight:600">AlarmBadge · Quality · Status</h3>
+    <div class="desc">Цвет + форма иконки. Никогда «только цвет».</div></div>
+  </div>
+  <div class="glass card">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <span class="badge" style="--bg-color:#4CAF50"><span class="icon"></span>OK</span>
+      <span class="badge badge-tri" style="--bg-color:#FFA726"><span class="icon"></span>HI</span>
+      <span class="badge badge-square" style="--bg-color:#EF5350"><span class="icon" style="transform:rotate(45deg)"></span>HIHI</span>
+      <span class="badge" style="--bg-color:#42A5F5"><span class="icon" style="background:transparent;border:1.5px solid #42A5F5"></span>UNCERTAIN</span>
+      <span class="badge" style="--bg-color:#78909C"><span class="icon" style="background:repeating-linear-gradient(45deg,#78909C 0 2px,transparent 2px 4px)"></span>BAD</span>
+      <span class="badge" style="--bg-color:#546E7A"><span class="icon" style="border:1.5px solid #546E7A;background:transparent;border-right-color:transparent"></span>COMM</span>
+      <span class="badge" style="--bg-color:#37474F"><span class="icon" style="opacity:0.5"></span>OFFLINE</span>
+      <span class="badge badge-x" style="--bg-color:#7E57C2">✓ ACK</span>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+      <span class="badge" style="--bg-color:#228BE6">DRAFT</span>
+      <span class="badge" style="--bg-color:#4CAF50">PUBLISHED</span>
+      <span class="badge" style="--bg-color:#FFA726">UNSAVED</span>
+    </div>
+  </div>
+
+  <!-- Tabs / Switch / Tag -->
+  <div class="grid grid-3" style="margin-top:16px;">
+    <div class="glass card">
+      <div class="card-title">Tabs</div>
+      <div class="tabs">
+        <button class="tab active">Properties</button>
+        <button class="tab">Data Binding</button>
+      </div>
+      <div style="margin-top:14px;">
+      <div class="tabs">
+        <button class="tab active">Overview</button>
+        <button class="tab">Devices</button>
+        <button class="tab">Tags</button>
+        <button class="tab">Diagrams</button>
+      </div>
+      </div>
+    </div>
+    <div class="glass card">
+      <div class="card-title">Switch · Toolbar toggle</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="swt on"><span class="swt-track"></span><span>Сетка</span></div>
+        <div class="swt on"><span class="swt-track"></span><span>Snap to grid</span></div>
+        <div class="swt"><span class="swt-track"></span><span>Линейки</span></div>
+        <div class="swt"><span class="swt-track"></span><span>Подписи фигур</span></div>
+      </div>
+    </div>
+    <div class="glass card">
+      <div class="card-title">TagSelect · Data Binding</div>
+      <div class="input" style="display:flex;align-items:center;gap:8px;">
+        <span style="color:var(--text-muted);">⌕</span>
+        <input style="border:0;background:transparent;outline:none;font-family:'JetBrains Mono',monospace;font-size:12px;flex:1;color:var(--text-primary)" value="temp_" />
+      </div>
+      <div style="margin-top:8px;display:flex;flex-direction:column;gap:4px;">
+        <div style="padding:6px 8px;border-radius:6px;background:rgba(34,139,230,0.12);border:1px solid color-mix(in srgb,#228BE6 25%,transparent);font-size:11px;display:flex;justify-content:space-between;align-items:center;">
+          <span><span style="font-family:'JetBrains Mono',monospace;color:var(--text-primary)">temp_inlet</span> <span style="color:var(--text-muted)">· boiler-01</span></span>
+          <span style="font-family:'JetBrains Mono',monospace;color:var(--alarm-ok);font-size:10px;">°C</span>
+        </div>
+        <div style="padding:6px 8px;border-radius:6px;font-size:11px;display:flex;justify-content:space-between;color:var(--text-secondary)">
+          <span><span style="font-family:'JetBrains Mono',monospace">temp_outlet</span> · boiler-01</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;">°C</span>
+        </div>
+        <div style="padding:6px 8px;border-radius:6px;font-size:11px;display:flex;justify-content:space-between;color:var(--text-secondary)">
+          <span><span style="font-family:'JetBrains Mono',monospace">temp_return</span> · boiler-02</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;">°C</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cards -->
+  <div class="section-head">
+    <div><h3 style="margin:0;font-size:16px;font-weight:600">Card · DiagramCard, ObjectCard</h3>
+    <div class="desc">Карточки данных — flat surface, без glass, плотные.</div></div>
+  </div>
+
+  <div class="grid grid-3">
+    <div class="card" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+      <div style="height:120px;border-radius:6px;background:linear-gradient(135deg,#E7F0FA 0%,#FFF 100%);position:relative;overflow:hidden;margin:-18px -18px 12px;border-bottom:1px solid var(--border-default);">
+        <svg viewBox="0 0 240 120" style="position:absolute;inset:0;width:100%;height:100%">
+          <rect x="20" y="20" width="60" height="40" fill="rgba(34,139,230,0.2)" stroke="#228BE6" stroke-width="2"/>
+          <circle cx="140" cy="40" r="20" fill="rgba(76,175,80,0.25)" stroke="#4CAF50" stroke-width="2"/>
+          <line x1="80" y1="40" x2="120" y2="40" stroke="#495057" stroke-width="2"/>
+          <rect x="180" y="60" width="40" height="30" fill="rgba(255,167,38,0.2)" stroke="#FFA726" stroke-width="2"/>
+          <line x1="160" y1="40" x2="180" y2="75" stroke="#495057" stroke-width="2"/>
+        </svg>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div>
+          <h3>Котельная · Главная схема</h3>
+          <div class="sub" style="font-family:'JetBrains Mono',monospace;font-size:11px;">12 фигур · 8 биндингов</div>
+        </div>
+        <span class="badge" style="--bg-color:#4CAF50;font-size:10px;">PUBLISHED</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:11px;color:var(--text-muted);">
+        <span>Изменено 14:32</span>
+        <button class="btn btn-ghost btn-sm">Открыть →</button>
+      </div>
+    </div>
+
+    <div class="card" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+      <div style="height:120px;border-radius:6px;background:var(--bg-secondary);position:relative;overflow:hidden;margin:-18px -18px 12px;border-bottom:1px solid var(--border-default);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;">
+        <svg viewBox="0 0 240 120" style="position:absolute;inset:0;width:100%;height:100%">
+          <circle cx="60" cy="60" r="22" fill="rgba(126,87,194,0.25)" stroke="#7E57C2" stroke-width="2"/>
+          <rect x="120" y="30" width="50" height="60" fill="rgba(34,139,230,0.18)" stroke="#228BE6" stroke-width="2"/>
+          <text x="195" y="55" font-family="JetBrains Mono" font-size="11" fill="#495057">P-1</text>
+          <text x="195" y="72" font-family="JetBrains Mono" font-size="11" fill="#495057">15.2</text>
+        </svg>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div>
+          <h3>Венткамера · Контур приточный</h3>
+          <div class="sub" style="font-family:'JetBrains Mono',monospace;font-size:11px;">28 фигур · 14 биндингов</div>
+        </div>
+        <span class="badge" style="--bg-color:#FFA726;font-size:10px;">UNSAVED</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:11px;color:var(--text-muted);">
+        <span>Изменено только что</span>
+        <button class="btn btn-ghost btn-sm">Открыть →</button>
+      </div>
+    </div>
+
+    <div class="card" style="background:var(--bg-surface);border:1px dashed var(--border-default);display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:240px;color:var(--text-muted);">
+      <div style="width:48px;height:48px;border-radius:12px;background:var(--glass-bg-soft);border:1px solid var(--glass-border-inner);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--accent-blue);margin-bottom:10px;">+</div>
+      <div style="font-size:13px;color:var(--text-primary);font-weight:500;">Создать мнемосхему</div>
+      <div style="font-size:11px;margin-top:4px;text-align:center;max-width:200px;">Пустая схема, готовая к перетаскиванию фигур из палитры</div>
+    </div>
+  </div>
+
+  <!-- Modal preview -->
+  <div class="section-head">
+    <div><h3 style="margin:0;font-size:16px;font-weight:600">Modal · Подтверждение публикации</h3>
+    <div class="desc">Glass-chrome поверх backdrop'а. 3 состояния: saving · published · error.</div></div>
+  </div>
+
+  <div class="grid grid-3">
+    <div style="position:relative;height:300px;border-radius:14px;overflow:hidden;background:radial-gradient(circle at 40% 40%,var(--orb-1),transparent 60%),radial-gradient(circle at 70% 70%,var(--orb-2),transparent 60%),var(--bg-secondary);">
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,0.06);backdrop-filter:blur(2px);"></div>
+      <div class="glass" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:240px;padding:18px;text-align:center;">
+        <div style="width:36px;height:36px;border-radius:50%;border:3px solid var(--accent-blue);border-top-color:transparent;margin:0 auto 10px;animation:spin 1s linear infinite;"></div>
+        <div style="font-size:13px;font-weight:600;">Публикация…</div>
+        <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;font-family:'JetBrains Mono',monospace">snapshot · 12 figures</div>
+      </div>
+    </div>
+
+    <div style="position:relative;height:300px;border-radius:14px;overflow:hidden;background:radial-gradient(circle at 40% 40%,var(--orb-1),transparent 60%),radial-gradient(circle at 70% 70%,var(--orb-3),transparent 60%),var(--bg-secondary);">
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,0.06);backdrop-filter:blur(2px);"></div>
+      <div class="glass" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:240px;padding:18px;text-align:center;">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--alarm-ok);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:700;margin:0 auto 10px;box-shadow:0 4px 14px -4px rgba(76,175,80,0.6);">✓</div>
+        <div style="font-size:13px;font-weight:600;">Опубликовано</div>
+        <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;font-family:'JetBrains Mono',monospace">v.4 · 14:32:08</div>
+        <button class="btn btn-secondary btn-sm" style="margin-top:12px;">Закрыть</button>
+      </div>
+    </div>
+
+    <div style="position:relative;height:300px;border-radius:14px;overflow:hidden;background:radial-gradient(circle at 40% 40%,var(--orb-2),transparent 60%),radial-gradient(circle at 70% 70%,var(--orb-4),transparent 60%),var(--bg-secondary);">
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,0.06);backdrop-filter:blur(2px);"></div>
+      <div class="glass" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:260px;padding:18px;text-align:center;">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--alarm-crit);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:700;margin:0 auto 10px;box-shadow:0 4px 14px -4px rgba(239,83,80,0.6);">!</div>
+        <div style="font-size:13px;font-weight:600;">Ошибка публикации</div>
+        <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">ms-editor вернул 503</div>
+        <div style="display:flex;gap:8px;margin-top:12px;justify-content:center;">
+          <button class="btn btn-secondary btn-sm">Отмена</button>
+          <button class="btn btn-primary btn-sm">Повторить</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ============ LAYOUT ============ -->
+<section class="page" data-page="layout">
+
+  <div class="section-head">
+    <div>
+      <h2>Layout · AppShell</h2>
+      <div class="desc">Два режима: List и Editor. Navbar и Panel — взаимоисключающие.</div>
+    </div>
+    <div class="meta">03 / 05</div>
+  </div>
+
+  <!-- LIST mode -->
+  <div class="section-head">
+    <div><h3 style="margin:0;font-size:15px;font-weight:600">List mode · /objects/:id/diagrams</h3>
+    <div class="desc">Header · Navbar · Main. Без Aside, без Footer.</div></div>
+  </div>
+
+  <div class="shell" style="background:radial-gradient(circle at 20% 20%,var(--orb-1),transparent 50%),radial-gradient(circle at 80% 80%,var(--orb-3),transparent 50%),var(--bg-secondary)">
+    <div class="shell-header">
+      <div class="topbar-logo" style="margin-right:8px;">
+        <div class="mark" style="width:24px;height:24px;border-radius:6px;"></div>
+        <div style="font-size:13px;">Controlitix</div>
+      </div>
+      <div class="crumbs">
+        <span>Объекты</span><span class="sep">/</span>
+        <span>Котельная №3</span><span class="sep">/</span>
+        <span class="cur">Мнемосхемы</span>
+      </div>
+      <div style="flex:1"></div>
+      <div class="input glass-strong" style="width:240px;padding:6px 10px;display:flex;align-items:center;gap:6px;">
+        <span style="color:var(--text-muted);font-size:12px;">⌕</span>
+        <input style="border:0;background:transparent;outline:none;flex:1;font-size:12px;color:var(--text-primary)" placeholder="Поиск по мнемосхемам…" />
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);background:var(--glass-bg-soft);padding:2px 6px;border-radius:4px;">⌘K</span>
+      </div>
+      <button class="btn btn-ghost btn-icon">⚙</button>
+      <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#7E57C2,#4C9AFF);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:11px;">ИП</div>
+    </div>
+
+    <div class="shell-navbar">
+      <div class="nav-section">Объекты</div>
+      <div class="nav-item"><span class="nav-tree-toggle">▾</span><span style="flex:1">Котельная №3 <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted)">·SVR</span></span></div>
+      <div style="padding-left:18px;">
+        <div class="nav-item">Overview</div>
+        <div class="nav-item">Устройства <span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted)">12</span></div>
+        <div class="nav-item">Теги <span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted)">86</span></div>
+        <div class="nav-item active">Мнемосхемы <span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent-blue)">4</span></div>
+      </div>
+      <div class="nav-item"><span class="nav-tree-toggle">▸</span><span style="flex:1">Венткамера · Север</span></div>
+      <div class="nav-item"><span class="nav-tree-toggle">▸</span><span style="flex:1">ИТП · Корпус Б</span></div>
+      <div class="nav-item"><span class="nav-tree-toggle">▸</span><span style="flex:1">Чиллерная · Крыша</span></div>
+      <div class="nav-section">Система</div>
+      <div class="nav-item">Поиск</div>
+      <div class="nav-item">Настройки</div>
+    </div>
+
+    <div class="shell-main">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div>
+          <h3 style="margin:0;font-size:18px;font-weight:600;">Мнемосхемы</h3>
+          <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">4 схемы · 1 опубликована · 3 черновика</div>
+        </div>
+        <button class="btn btn-primary">+ Создать схему</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+        <div class="card" style="background:var(--bg-surface);border:1px solid var(--border-default);padding:12px;">
+          <div style="height:80px;background:linear-gradient(135deg,#E7F0FA,#fff);border-radius:4px;margin-bottom:10px;position:relative;overflow:hidden;">
+            <svg viewBox="0 0 200 80" style="width:100%;height:100%;"><rect x="20" y="20" width="40" height="30" fill="rgba(34,139,230,0.3)" stroke="#228BE6" stroke-width="1.5"/><circle cx="120" cy="35" r="14" fill="rgba(76,175,80,0.25)" stroke="#4CAF50" stroke-width="1.5"/><line x1="60" y1="35" x2="106" y2="35" stroke="#495057" stroke-width="1.5"/></svg>
+          </div>
+          <div style="font-size:13px;font-weight:600;">Главная схема</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px;font-family:'JetBrains Mono',monospace;">12 figures</div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px;align-items:center;"><span class="badge" style="--bg-color:#4CAF50;font-size:9px;">PUBLISHED</span><span style="font-size:10px;color:var(--text-muted)">14:32</span></div>
+        </div>
+        <div class="card" style="background:var(--bg-surface);border:1px solid var(--border-default);padding:12px;">
+          <div style="height:80px;background:linear-gradient(135deg,#FFE4F0,#fff);border-radius:4px;margin-bottom:10px;position:relative;overflow:hidden;">
+            <svg viewBox="0 0 200 80" style="width:100%;height:100%;"><circle cx="60" cy="40" r="16" fill="rgba(126,87,194,0.25)" stroke="#7E57C2" stroke-width="1.5"/><rect x="100" y="20" width="40" height="40" fill="rgba(255,167,38,0.18)" stroke="#FFA726" stroke-width="1.5"/></svg>
+          </div>
+          <div style="font-size:13px;font-weight:600;">Контур ГВС</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px;font-family:'JetBrains Mono',monospace;">8 figures</div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px;align-items:center;"><span class="badge" style="--bg-color:#FFA726;font-size:9px;">UNSAVED</span><span style="font-size:10px;color:var(--text-muted)">только что</span></div>
+        </div>
+        <div class="card" style="background:var(--bg-surface);border:1px solid var(--border-default);padding:12px;">
+          <div style="height:80px;background:linear-gradient(135deg,#D4F0E0,#fff);border-radius:4px;margin-bottom:10px;position:relative;overflow:hidden;">
+            <svg viewBox="0 0 200 80" style="width:100%;height:100%;"><rect x="20" y="20" width="50" height="40" fill="rgba(34,139,230,0.2)" stroke="#228BE6" stroke-width="1.5"/><line x1="70" y1="40" x2="110" y2="40" stroke="#495057" stroke-width="1.5"/><circle cx="130" cy="40" r="14" fill="rgba(76,175,80,0.25)" stroke="#4CAF50" stroke-width="1.5"/><line x1="144" y1="40" x2="180" y2="40" stroke="#495057" stroke-width="1.5"/></svg>
+          </div>
+          <div style="font-size:13px;font-weight:600;">Резервный контур</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px;font-family:'JetBrains Mono',monospace;">15 figures</div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px;align-items:center;"><span class="badge" style="--bg-color:#228BE6;font-size:9px;">DRAFT</span><span style="font-size:10px;color:var(--text-muted)">вчера</span></div>
+        </div>
+        <div class="card" style="background:var(--bg-surface);border:1px dashed var(--border-default);display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:160px;color:var(--text-muted);padding:12px;">
+          <div style="width:32px;height:32px;border-radius:8px;background:var(--glass-bg-soft);border:1px solid var(--glass-border-inner);display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--accent-blue);margin-bottom:6px;">+</div>
+          <div style="font-size:11px;color:var(--text-primary);">Новая схема</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Editor mode shell -->
+  <div class="section-head">
+    <div><h3 style="margin:0;font-size:15px;font-weight:600">Editor mode · /diagrams/:id/edit</h3>
+    <div class="desc">Header · Panel · Main · Aside · Footer. Navbar заменяется Panel'ом.</div></div>
+  </div>
+
+  <div class="shell shell-editor" style="background:radial-gradient(circle at 30% 30%,var(--orb-1),transparent 50%),radial-gradient(circle at 70% 70%,var(--orb-2),transparent 50%),var(--bg-secondary)">
+    <div class="shell-header">
+      <div class="topbar-logo" style="margin-right:8px;"><div class="mark" style="width:24px;height:24px;border-radius:6px;"></div></div>
+      <div class="crumbs">
+        <span>Котельная №3</span><span class="sep">/</span>
+        <span class="cur" style="font-family:'JetBrains Mono',monospace;font-size:12px;">Главная схема</span>
+        <span class="badge" style="--bg-color:#4CAF50;font-size:9px;margin-left:6px;">PUBLISHED v.4</span>
+      </div>
+      <div style="flex:1"></div>
+      <div style="display:flex;gap:6px;align-items:center;background:var(--glass-bg-soft);padding:3px;border-radius:8px;border:1px solid var(--glass-border-inner)">
+        <button class="btn btn-ghost btn-icon" title="Undo">↶</button>
+        <button class="btn btn-ghost btn-icon" title="Redo">↷</button>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;background:var(--glass-bg-soft);padding:3px;border-radius:8px;border:1px solid var(--glass-border-inner)">
+        <button class="btn btn-ghost btn-icon" title="Grid" style="color:var(--accent-blue)">⊞</button>
+        <button class="btn btn-ghost btn-icon" title="Snap" style="color:var(--accent-blue)">⊥</button>
+        <button class="btn btn-ghost btn-icon" title="Align">≡</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">сохранено · 14:32</div>
+      <button class="btn btn-primary">↑ Опубликовать</button>
+      <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#7E57C2,#4C9AFF);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:10px;">ИП</div>
+    </div>
+
+    <div class="shell-panel">
+      <div class="card-title" style="margin-bottom:8px;">Фигуры</div>
+      <div class="shape-grid">
+        <div class="shape-tile active" title="Rectangle"><svg width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></div>
+        <div class="shape-tile" title="Circle"><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></div>
+        <div class="shape-tile" title="Ellipse"><svg width="16" height="16" viewBox="0 0 16 16"><ellipse cx="8" cy="8" rx="6.5" ry="4" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></div>
+        <div class="shape-tile" title="Wedge"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 8 L8 2 A6 6 0 0 1 14 8 Z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></div>
+        <div class="shape-tile" title="Line"><svg width="16" height="16" viewBox="0 0 16 16"><line x1="2" y1="13" x2="14" y2="3" stroke="currentColor" stroke-width="1.5"/></svg></div>
+        <div class="shape-tile" title="Image"><svg width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" stroke="currentColor" stroke-width="1.5" fill="none"/><circle cx="6" cy="7" r="1.2" fill="currentColor"/><path d="M2 12 L6 8 L10 11 L14 7" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></div>
+        <div class="shape-tile" title="Text"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M3 4 L13 4 M8 4 L8 13" stroke="currentColor" stroke-width="1.5"/></svg></div>
+        <div class="shape-tile" title="Ring"><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.5" fill="none"/><circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></div>
+        <div class="shape-tile" title="Arc"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M2 13 A6 6 0 0 1 14 13" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></div>
+        <div class="shape-tile" title="Tag"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M2 5 L8 2 L14 5 L14 11 L8 14 L2 11 Z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></div>
+        <div class="shape-tile" title="Path"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M2 8 Q5 2 8 8 T14 8" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></div>
+      </div>
+      <div class="card-title" style="margin:14px 0 6px;">Слои · 4</div>
+      <div>
+        <div class="layer-item active"><span class="icon">▢</span><span class="name">rect_01</span><span style="opacity:0.6;font-size:10px">👁</span></div>
+        <div class="layer-item"><span class="icon">○</span><span class="name">circle_02</span><span style="opacity:0.6;font-size:10px">👁</span></div>
+        <div class="layer-item"><span class="icon">─</span><span class="name">line_03</span><span style="opacity:0.6;font-size:10px">👁</span></div>
+        <div class="layer-item"><span class="icon" style="opacity:0.3">▢</span><span class="name" style="opacity:0.5">rect_04</span><span style="font-size:10px">🔒</span></div>
+      </div>
+    </div>
+
+    <div class="shell-main">
+      <div class="canvas-grid"></div>
+      <div class="canvas-figs">
+        <div class="fig" style="left:80px;top:60px;width:120px;height:80px;"></div>
+        <div class="fig selected" style="left:240px;top:90px;width:90px;height:90px;border-radius:50%;background:rgba(76,175,80,0.18);border-color:#4CAF50">
+          <div class="fig-handles"><div class="fig-handle" style="top:-4px;left:-4px"></div><div class="fig-handle" style="top:-4px;right:-4px"></div><div class="fig-handle" style="bottom:-4px;left:-4px"></div><div class="fig-handle" style="bottom:-4px;right:-4px"></div></div>
+        </div>
+        <div class="fig" style="left:200px;top:130px;width:42px;height:6px;background:#495057;border-color:#495057;"></div>
+        <div class="fig" style="left:380px;top:170px;width:80px;height:60px;background:rgba(255,167,38,0.18);border-color:#FFA726"></div>
+      </div>
+      <div class="glass" style="position:absolute;left:12px;top:12px;padding:8px 10px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text-secondary)">
+        <span style="color:var(--text-muted)">cursor:</span> 142.0, 88.5
+      </div>
+    </div>
+
+    <div class="shell-aside">
+      <div class="aside-tabs">
+        <button class="aside-tab active">Properties</button>
+        <button class="aside-tab">Data Binding</button>
+      </div>
+      <div class="prop-section">
+        <h4>Geometry</h4>
+        <div class="prop-row"><span class="label">x</span><input class="prop-input" value="240"/><span class="label">y</span><input class="prop-input" value="90"/></div>
+        <div class="prop-row"><span class="label">w</span><input class="prop-input" value="90"/><span class="label">h</span><input class="prop-input" value="90"/></div>
+        <div class="prop-row"><span class="label">↻</span><input class="prop-input" value="0°"/><span class="label">α</span><input class="prop-input" value="100%"/></div>
+      </div>
+      <div class="prop-section" style="border-top:1px solid var(--glass-border-inner)">
+        <h4>Fill · Stroke</h4>
+        <div class="prop-row"><span class="label">fill</span><div class="color-picker"><span class="color-swatch" style="background:#4CAF50"></span><span class="color-hex">#4CAF50</span></div></div>
+        <div class="prop-row"><span class="label">stk</span><div class="color-picker"><span class="color-swatch" style="background:#228BE6"></span><span class="color-hex">#228BE6</span></div></div>
+        <div class="prop-row"><span class="label">w</span><input class="prop-input" value="2px"/></div>
+      </div>
+    </div>
+
+    <div class="shell-footer">
+      <button class="btn btn-ghost btn-icon">↶</button>
+      <button class="btn btn-ghost btn-icon">↷</button>
+      <div style="width:1px;height:20px;background:var(--glass-border-inner)"></div>
+      <div class="swt on"><span class="swt-track"></span><span style="font-size:11px">Grid</span></div>
+      <div class="swt on"><span class="swt-track"></span><span style="font-size:11px">Snap</span></div>
+      <div style="width:1px;height:20px;background:var(--glass-border-inner)"></div>
+      <span style="font-size:11px;color:var(--text-muted)">Zoom</span>
+      <div style="width:120px;height:4px;border-radius:2px;background:var(--glass-bg-soft);position:relative;"><div style="position:absolute;left:0;top:0;height:100%;width:60%;background:var(--accent-blue);border-radius:2px"></div><div style="position:absolute;left:60%;top:50%;transform:translate(-50%,-50%);width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid var(--accent-blue)"></div></div>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;width:40px;">100%</span>
+      <div style="flex:1"></div>
+      <span style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--alarm-ok)"><span style="width:6px;height:6px;border-radius:50%;background:var(--alarm-ok)"></span>Сохранено в 14:32</span>
+    </div>
+  </div>
+
+</section>
+
+<!-- ============ EDITOR DETAIL ============ -->
+<section class="page" data-page="editor">
+  <div class="section-head">
+    <div>
+      <h2>Editor · детально</h2>
+      <div class="desc">Состояния холста, формы биндинга, контекстное меню. 1440px ширина — хост-разрешение.</div>
+    </div>
+    <div class="meta">04 / 05</div>
+  </div>
+
+  <div class="grid grid-2">
+    <div class="glass card">
+      <div class="card-title">Empty state · нет фигур</div>
+      <div style="height:240px;border-radius:10px;background:var(--canvas-bg);position:relative;overflow:hidden;">
+        <div class="canvas-grid"></div>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;color:var(--text-muted);">
+          <div style="width:64px;height:64px;border:2px dashed var(--border-default);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--accent-blue);margin-bottom:10px;">＋</div>
+          <div style="font-size:13px;color:var(--text-primary);font-weight:500;">Перетащите фигуру из палитры</div>
+          <div style="font-size:11px;margin-top:4px;">или нажмите R, C, L, T для прямоугольника / круга / линии / текста</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass card">
+      <div class="card-title">Multi-select · 3 фигуры</div>
+      <div style="height:240px;border-radius:10px;background:var(--canvas-bg);position:relative;overflow:hidden;">
+        <div class="canvas-grid"></div>
+        <div class="fig" style="left:30px;top:30px;width:80px;height:60px;"></div>
+        <div class="fig" style="left:140px;top:50px;width:60px;height:60px;border-radius:50%;background:rgba(76,175,80,0.18);border-color:#4CAF50;"></div>
+        <div class="fig" style="left:230px;top:30px;width:90px;height:60px;background:rgba(255,167,38,0.18);border-color:#FFA726"></div>
+        <div style="position:absolute;left:24px;top:24px;width:312px;height:96px;border:2px dashed var(--accent-blue);border-radius:6px;background:rgba(34,139,230,0.05);"></div>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--text-secondary);font-family:'JetBrains Mono',monospace">
+        3 selected · только общие свойства · binding скрыт
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-2" style="margin-top:16px;">
+    <div class="glass card">
+      <div class="card-title">Data Binding tab</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Привязать фигуру <span style="font-family:'JetBrains Mono',monospace;color:var(--accent-blue)">circle_02</span> к тегу</div>
+      <div class="field" style="margin-bottom:10px;">
+        <label class="field-label">Тег</label>
+        <div class="input glass-strong" style="display:flex;align-items:center;gap:6px;">
+          <span style="color:var(--text-muted);">⌕</span>
+          <input style="border:0;background:transparent;outline:none;font-family:'JetBrains Mono',monospace;font-size:12px;flex:1;" value="temp_inlet" />
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--alarm-ok)">°C</span>
+        </div>
+      </div>
+      <div style="background:var(--glass-bg-soft);border:1px solid var(--glass-border-inner);border-radius:8px;padding:10px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;"><span style="color:var(--text-muted)">Устройство</span><span style="font-family:'JetBrains Mono',monospace">boiler-01</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;"><span style="color:var(--text-muted)">Адрес</span><span style="font-family:'JetBrains Mono',monospace">HR · 40012</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;"><span style="color:var(--text-muted)">Тип данных</span><span style="font-family:'JetBrains Mono',monospace">Float32</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:var(--text-muted)">Превью значения</span><span style="font-family:'JetBrains Mono',monospace;color:var(--text-muted)">— °C</span></div>
+      </div>
+      <div class="field">
+        <label class="field-label">Setpoints (от тега)</label>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;font-family:'JetBrains Mono',monospace;font-size:11px;">
+          <div style="padding:6px;background:rgba(239,83,80,0.08);border:1px solid color-mix(in srgb,#EF5350 25%,transparent);border-radius:4px;text-align:center;"><div style="color:var(--alarm-crit);font-size:9px;">LoLo</div><div>10</div></div>
+          <div style="padding:6px;background:rgba(255,167,38,0.08);border:1px solid color-mix(in srgb,#FFA726 25%,transparent);border-radius:4px;text-align:center;"><div style="color:var(--alarm-warn);font-size:9px;">Lo</div><div>30</div></div>
+          <div style="padding:6px;background:rgba(255,167,38,0.08);border:1px solid color-mix(in srgb,#FFA726 25%,transparent);border-radius:4px;text-align:center;"><div style="color:var(--alarm-warn);font-size:9px;">Hi</div><div>85</div></div>
+          <div style="padding:6px;background:rgba(239,83,80,0.08);border:1px solid color-mix(in srgb,#EF5350 25%,transparent);border-radius:4px;text-align:center;"><div style="color:var(--alarm-crit);font-size:9px;">HiHi</div><div>95</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass card">
+      <div class="card-title">Контекстное меню · ПКМ по фигуре</div>
+      <div style="height:240px;border-radius:10px;background:var(--canvas-bg);position:relative;overflow:hidden;">
+        <div class="canvas-grid"></div>
+        <div class="fig selected" style="left:60px;top:60px;width:90px;height:90px;border-radius:50%;background:rgba(76,175,80,0.18);border-color:#4CAF50"></div>
+        <div class="glass glass-strong" style="position:absolute;left:160px;top:90px;width:200px;border-radius:10px;padding:4px;">
+          <div style="padding:7px 10px;font-size:12px;display:flex;justify-content:space-between;cursor:pointer;border-radius:6px;" onmouseover="this.style.background='var(--glass-bg-soft)'" onmouseout="this.style.background=''">Дублировать <span style="font-family:'JetBrains Mono',monospace;color:var(--text-muted);font-size:10px">⌘D</span></div>
+          <div style="padding:7px 10px;font-size:12px;display:flex;justify-content:space-between;cursor:pointer;border-radius:6px;background:var(--glass-bg-soft);">Привязать к тегу <span style="font-family:'JetBrains Mono',monospace;color:var(--text-muted);font-size:10px">B</span></div>
+          <div style="padding:7px 10px;font-size:12px;display:flex;justify-content:space-between;cursor:pointer;border-radius:6px;">На передний план</div>
+          <div style="padding:7px 10px;font-size:12px;display:flex;justify-content:space-between;cursor:pointer;border-radius:6px;">На задний план</div>
+          <div style="height:1px;background:var(--glass-border-inner);margin:4px 0;"></div>
+          <div style="padding:7px 10px;font-size:12px;display:flex;justify-content:space-between;cursor:pointer;border-radius:6px;color:var(--alarm-crit)">Удалить <span style="font-family:'JetBrains Mono',monospace;color:var(--alarm-crit);opacity:0.6;font-size:10px">Del</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-2" style="margin-top:16px;">
+    <div class="glass card">
+      <div class="card-title">Footer · save / publish states</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div class="glass-soft" style="padding:8px 12px;border-radius:8px;display:flex;align-items:center;gap:8px;font-size:12px;background:var(--glass-bg-soft);border:1px solid var(--glass-border-inner)"><span style="width:6px;height:6px;border-radius:50%;background:var(--alarm-ok)"></span>Сохранено в 14:32</div>
+        <div class="glass-soft" style="padding:8px 12px;border-radius:8px;display:flex;align-items:center;gap:8px;font-size:12px;background:var(--glass-bg-soft);border:1px solid var(--glass-border-inner)"><span style="width:12px;height:12px;border-radius:50%;border:2px solid var(--accent-blue);border-top-color:transparent;animation:spin 1s linear infinite;"></span>Сохранение…</div>
+        <div style="padding:8px 12px;border-radius:8px;display:flex;align-items:center;gap:8px;font-size:12px;background:rgba(239,83,80,0.1);border:1px solid color-mix(in srgb,#EF5350 30%,transparent);color:var(--alarm-crit)"><span>!</span>Не удалось сохранить · <button class="btn btn-ghost btn-sm" style="padding:2px 8px;color:var(--alarm-crit)">Повторить</button></div>
+        <div style="padding:8px 12px;border-radius:8px;display:flex;align-items:center;gap:8px;font-size:12px;background:rgba(255,167,38,0.1);border:1px solid color-mix(in srgb,#FFA726 30%,transparent);color:#B47711;"><span>⚡</span>Соединение потеряно · автосохранение приостановлено</div>
+      </div>
+    </div>
+
+    <div class="glass card">
+      <div class="card-title">Keyboard shortcuts</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">
+        <div style="display:flex;justify-content:space-between;padding:5px 0;"><span>Undo / Redo</span><span style="font-family:'JetBrains Mono',monospace;color:var(--text-muted)">⌘Z · ⌘⇧Z</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;"><span>Удалить</span><span style="font-family:'JetBrains Mono',monospace;color:var(--text-muted)">Del</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;"><span>Дублировать</span><span style="font-family:'JetBrains Mono',monospace;color:var(--text-muted)">⌘D</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;"><span>Снять выделение</span><span style="font-family:'JetBrains Mono',monospace;color:var(--text-muted)">Esc</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;"><span>Zoom in / out</span><span style="font-family:'JetBrains Mono',monospace;color:var(--text-muted)">+ · −</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;"><span>Fit to screen</span><span style="font-family:'JetBrains Mono',monospace;color:var(--text-muted)">⌘0</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;"><span>Опубликовать</span><span style="font-family:'JetBrains Mono',monospace;color:var(--text-muted)">⌘↑</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;"><span>Привязать тег</span><span style="font-family:'JetBrains Mono',monospace;color:var(--text-muted)">B</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SCREENS ============ -->
+<section class="page" data-page="screens">
+  <div class="section-head">
+    <div>
+      <h2>Screens</h2>
+      <div class="desc">Login · Devices · Tag form · System states. Light по умолчанию.</div>
+    </div>
+    <div class="meta">05 / 05</div>
+  </div>
+
+  <!-- Login -->
+  <div class="section-head">
+    <div><h3 style="margin:0;font-size:15px;font-weight:600">Login</h3></div>
+  </div>
+  <div class="login-stage">
+    <div class="login-card glass glass-strong">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+        <div class="mark" style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#4C9AFF 0%,#228BE6 60%,#7E57C2 100%);box-shadow:0 4px 14px -4px rgba(34,139,230,0.5),inset 0 1px 0 rgba(255,255,255,0.4);position:relative;"></div>
+        <div>
+          <div style="font-size:14px;font-weight:600;">Controlitix</div>
+          <div style="font-size:10px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">editor-ui · v0.1</div>
+        </div>
+      </div>
+      <h1>С возвращением, инженер</h1>
+      <p class="lead">Войдите, чтобы продолжить работу с мнемосхемами объектов</p>
+      <div class="field" style="margin-bottom:10px;">
+        <label class="field-label">Email</label>
+        <input class="input" value="ivan.petrov@controlitix.io" />
+      </div>
+      <div class="field" style="margin-bottom:14px;">
+        <label class="field-label">Пароль</label>
+        <input class="input" type="password" value="••••••••••" />
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;padding:9px;">Войти</button>
+      <div style="text-align:center;margin-top:14px;font-size:11px;color:var(--text-muted);">
+        Забыли пароль? <a style="color:var(--accent-blue);text-decoration:none">Восстановить</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Devices table -->
+  <div class="section-head">
+    <div><h3 style="margin:0;font-size:15px;font-weight:600">Устройства объекта</h3>
+    <div class="desc">Таблица с протоколами и статусом · drawer-форма устройства</div></div>
+  </div>
+
+  <div class="glass card" style="padding:0;overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--glass-border-inner);">
+      <h3 style="margin:0;font-size:15px;">Устройства · 12</h3>
+      <div class="input glass-strong" style="width:240px;padding:6px 10px;display:flex;align-items:center;gap:6px;">
+        <span style="color:var(--text-muted);font-size:12px;">⌕</span>
+        <input style="border:0;background:transparent;outline:none;flex:1;font-size:12px" placeholder="Поиск…" />
+      </div>
+      <div style="display:flex;gap:4px;background:var(--glass-bg-soft);padding:3px;border-radius:8px;border:1px solid var(--glass-border-inner)">
+        <button class="tab active" style="padding:4px 10px;font-size:11px">Все</button>
+        <button class="tab" style="padding:4px 10px;font-size:11px">Modbus</button>
+        <button class="tab" style="padding:4px 10px;font-size:11px">SNMP</button>
+      </div>
+      <div style="flex:1"></div>
+      <button class="btn btn-primary btn-sm">+ Устройство</button>
+    </div>
+    <table class="tbl">
+      <thead><tr>
+        <th style="width:32px;"></th>
+        <th>Имя</th>
+        <th class="mono">id</th>
+        <th>Протокол</th>
+        <th class="mono">Endpoint</th>
+        <th>Теги</th>
+        <th>Статус</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td><span style="width:8px;height:8px;border-radius:50%;background:var(--alarm-ok);display:inline-block"></span></td>
+          <td style="font-weight:500">boiler-01</td>
+          <td class="mono">dev_4f3a</td>
+          <td>Modbus TCP</td>
+          <td class="mono">10.18.4.21:502</td>
+          <td class="mono">24</td>
+          <td><span class="badge" style="--bg-color:#4CAF50;font-size:9px;">ONLINE</span></td>
+          <td><button class="btn btn-ghost btn-sm">Редактировать</button></td>
+        </tr>
+        <tr>
+          <td><span style="width:8px;height:8px;border-radius:50%;background:var(--alarm-warn);display:inline-block"></span></td>
+          <td style="font-weight:500">vent-fan-02</td>
+          <td class="mono">dev_8ab1</td>
+          <td>Modbus RTU</td>
+          <td class="mono">/dev/ttyS0 · 9600 8N1</td>
+          <td class="mono">8</td>
+          <td><span class="badge badge-tri" style="--bg-color:#FFA726;font-size:9px;"><span class="icon"></span>SLOW</span></td>
+          <td><button class="btn btn-ghost btn-sm">Редактировать</button></td>
+        </tr>
+        <tr>
+          <td><span style="width:8px;height:8px;border-radius:50%;background:var(--alarm-comm);display:inline-block"></span></td>
+          <td style="font-weight:500">switch-core</td>
+          <td class="mono">dev_2c19</td>
+          <td>SNMP v2c</td>
+          <td class="mono">10.18.4.1:161</td>
+          <td class="mono">42</td>
+          <td><span class="badge" style="--bg-color:#546E7A;font-size:9px;">COMM LOSS</span></td>
+          <td><button class="btn btn-ghost btn-sm">Редактировать</button></td>
+        </tr>
+        <tr>
+          <td><span style="width:8px;height:8px;border-radius:50%;background:var(--alarm-ok);display:inline-block"></span></td>
+          <td style="font-weight:500">ups-main</td>
+          <td class="mono">dev_7d4e</td>
+          <td>SNMP v3</td>
+          <td class="mono">10.18.4.5:161</td>
+          <td class="mono">12</td>
+          <td><span class="badge" style="--bg-color:#4CAF50;font-size:9px;">ONLINE</span></td>
+          <td><button class="btn btn-ghost btn-sm">Редактировать</button></td>
+        </tr>
+        <tr>
+          <td><span style="width:8px;height:8px;border-radius:50%;background:var(--alarm-offline);display:inline-block;opacity:0.6"></span></td>
+          <td style="font-weight:500;opacity:0.7">old-controller</td>
+          <td class="mono" style="opacity:0.6">dev_1900</td>
+          <td>Modbus RTU</td>
+          <td class="mono" style="opacity:0.6">/dev/ttyS1 · 19200</td>
+          <td class="mono" style="opacity:0.6">0</td>
+          <td><span class="badge" style="--bg-color:#37474F;font-size:9px;">OFFLINE</span></td>
+          <td><button class="btn btn-ghost btn-sm">Редактировать</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Tag form drawer -->
+  <div class="section-head">
+    <div><h3 style="margin:0;font-size:15px;font-weight:600">Tag form · Drawer</h3>
+    <div class="desc">Per-protocol поля · scaling · setpoints</div></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 380px;gap:16px;align-items:start;">
+    <div class="glass card" style="opacity:0.5;height:520px;"></div>
+    <div class="glass glass-strong" style="border-radius:14px;padding:18px;height:520px;overflow:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <h3 style="margin:0;font-size:16px;">Новый тег</h3>
+        <button class="btn btn-ghost btn-icon">×</button>
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label class="field-label">Имя тега</label>
+        <input class="input input-mono" value="temp_inlet" />
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label class="field-label">Устройство</label>
+        <div class="input" style="display:flex;align-items:center;justify-content:space-between;">
+          <span style="display:flex;gap:6px;align-items:center;font-family:'JetBrains Mono',monospace;font-size:12px;"><span style="width:6px;height:6px;background:var(--alarm-ok);border-radius:50%"></span>boiler-01</span>
+          <span style="color:var(--text-muted);font-size:10px">▾</span>
+        </div>
+      </div>
+
+      <div class="card-title" style="margin-top:14px">Адрес · Modbus</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+        <div class="field"><label class="field-label">Тип регистра</label><input class="input input-mono" value="HOLDING" /></div>
+        <div class="field"><label class="field-label">Address</label><input class="input input-mono" value="40012" /></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+        <div class="field"><label class="field-label">Data type</label><input class="input input-mono" value="Float32" /></div>
+        <div class="field"><label class="field-label">Unit</label><input class="input input-mono" value="°C" /></div>
+      </div>
+
+      <div class="card-title" style="margin-top:14px">Scaling</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div class="field"><label class="field-label">raw_min</label><input class="input input-mono" value="0" /></div>
+        <div class="field"><label class="field-label">raw_max</label><input class="input input-mono" value="65535" /></div>
+        <div class="field"><label class="field-label">eng_min</label><input class="input input-mono" value="0.0" /></div>
+        <div class="field"><label class="field-label">eng_max</label><input class="input input-mono" value="150.0" /></div>
+      </div>
+
+      <div class="card-title" style="margin-top:14px">Setpoints</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;">
+        <div class="field"><label class="field-label" style="color:var(--alarm-crit)">LoLo</label><input class="input input-mono" value="10" style="border-color:color-mix(in srgb,#EF5350 30%,transparent)"/></div>
+        <div class="field"><label class="field-label" style="color:var(--alarm-warn)">Lo</label><input class="input input-mono" value="30" style="border-color:color-mix(in srgb,#FFA726 30%,transparent)"/></div>
+        <div class="field"><label class="field-label" style="color:var(--alarm-warn)">Hi</label><input class="input input-mono" value="85" style="border-color:color-mix(in srgb,#FFA726 30%,transparent)"/></div>
+        <div class="field"><label class="field-label" style="color:var(--alarm-crit)">HiHi</label><input class="input input-mono" value="95" style="border-color:color-mix(in srgb,#EF5350 30%,transparent)"/></div>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--glass-border-inner);padding-top:14px;">
+        <button class="btn btn-ghost">Отмена</button>
+        <button class="btn btn-primary">Создать тег</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- System screens -->
+  <div class="section-head">
+    <div><h3 style="margin:0;font-size:15px;font-weight:600">System states · 403 · 404 · 500 · session</h3></div>
+  </div>
+
+  <div class="grid grid-4">
+    <div class="glass card" style="text-align:center;padding:24px 16px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:36px;font-weight:600;background:linear-gradient(180deg,#FFA726,#F08F0E);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">403</div>
+      <div style="font-size:13px;font-weight:600;margin-top:6px;">Нет доступа</div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">Этот объект закрыт для вашей роли.</div>
+      <button class="btn btn-secondary btn-sm" style="margin-top:14px;">К списку объектов</button>
+    </div>
+    <div class="glass card" style="text-align:center;padding:24px 16px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:36px;font-weight:600;background:linear-gradient(180deg,#42A5F5,#1976D2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">404</div>
+      <div style="font-size:13px;font-weight:600;margin-top:6px;">Не найдено</div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">Возможно, схема была удалена или перенесена.</div>
+      <button class="btn btn-secondary btn-sm" style="margin-top:14px;">Назад</button>
+    </div>
+    <div class="glass card" style="text-align:center;padding:24px 16px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:36px;font-weight:600;background:linear-gradient(180deg,#EF5350,#C62828);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">500</div>
+      <div style="font-size:13px;font-weight:600;margin-top:6px;">Ошибка backend'а</div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;font-family:'JetBrains Mono',monospace;">err_id: a8f3·14:32</div>
+      <button class="btn btn-secondary btn-sm" style="margin-top:14px;">Повторить</button>
+    </div>
+    <div class="glass card" style="text-align:center;padding:24px 16px;">
+      <div style="font-size:32px;color:var(--alarm-ack);">⏱</div>
+      <div style="font-size:13px;font-weight:600;margin-top:6px;">Сессия истекла</div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">Войдите снова, чтобы продолжить.</div>
+      <button class="btn btn-primary btn-sm" style="margin-top:14px;">Войти</button>
+    </div>
+  </div>
+
+  <!-- Empty / loading -->
+  <div class="grid grid-2" style="margin-top:16px;">
+    <div class="glass card">
+      <div class="card-title">Empty · нет объектов</div>
+      <div style="height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--text-muted)">
+        <div style="width:56px;height:56px;border-radius:14px;background:var(--glass-bg-soft);border:1px solid var(--glass-border-inner);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--accent-blue);margin-bottom:10px;">▢</div>
+        <div style="font-size:13px;color:var(--text-primary);font-weight:500;">Ещё нет объектов мониторинга</div>
+        <div style="font-size:11px;margin-top:4px;max-width:240px;">Создайте первый, чтобы добавить устройства, теги и собрать мнемосхему.</div>
+        <button class="btn btn-primary btn-sm" style="margin-top:14px;">+ Создать объект</button>
+      </div>
+    </div>
+    <div class="glass card">
+      <div class="card-title">Loading skeleton · список схем</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+        <div style="background:linear-gradient(90deg,var(--glass-bg-soft),var(--glass-bg-strong),var(--glass-bg-soft));background-size:200% 100%;animation:shimmer 1.4s linear infinite;border-radius:8px;height:120px;border:1px solid var(--glass-border-inner)"></div>
+        <div style="background:linear-gradient(90deg,var(--glass-bg-soft),var(--glass-bg-strong),var(--glass-bg-soft));background-size:200% 100%;animation:shimmer 1.4s linear infinite;animation-delay:0.2s;border-radius:8px;height:120px;border:1px solid var(--glass-border-inner)"></div>
+        <div style="background:linear-gradient(90deg,var(--glass-bg-soft),var(--glass-bg-strong),var(--glass-bg-soft));background-size:200% 100%;animation:shimmer 1.4s linear infinite;animation-delay:0.4s;border-radius:8px;height:120px;border:1px solid var(--glass-border-inner)"></div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+</main>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+</style>
+
+<script>
+// Tab navigation
+document.querySelectorAll('.topbar-nav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = btn.dataset.page;
+    document.querySelectorAll('.topbar-nav button').forEach(b => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('main > section.page').forEach(p => p.classList.toggle('active', p.dataset.page === target));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+});
+
+// Theme toggle
+document.querySelectorAll('.theme-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const theme = btn.dataset.themeSet;
+    document.body.dataset.theme = theme;
+    document.querySelectorAll('.theme-toggle button').forEach(b => b.classList.toggle('active', b === btn));
+  });
+});
+</script>
+</body>
+</html>
