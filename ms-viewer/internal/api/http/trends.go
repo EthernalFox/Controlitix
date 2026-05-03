@@ -1,4 +1,4 @@
-﻿package http
+package http
 
 import (
 	"fmt"
@@ -12,6 +12,8 @@ import (
 
 	"github.com/EthernalFox/Controlitix/ms-viewer/internal/domain"
 )
+
+const defaultTrendLimit = 1000
 
 type TrendsHandler struct {
 	trendUseCase TrendUseCase

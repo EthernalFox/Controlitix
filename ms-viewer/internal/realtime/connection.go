@@ -21,6 +21,7 @@ type ConnectionOptions struct {
 	Hub             *Hub
 	Socket          *websocket.Conn
 	Subject         string
+	Roles           []string
 	SessionID       string
 	Logger          *slog.Logger
 	WriteBufferSize int
@@ -32,6 +33,7 @@ type Connection struct {
 	hub       *Hub
 	socket    *websocket.Conn
 	subject   string
+	roles     []string
 	sessionID string
 	logger    *slog.Logger
 
@@ -75,6 +77,7 @@ func NewConnection(options ConnectionOptions) *Connection {
 		hub:          options.Hub,
 		socket:       options.Socket,
 		subject:      options.Subject,
+		roles:        append([]string(nil), options.Roles...),
 		sessionID:    options.SessionID,
 		logger:       logger,
 		outbox:       make(chan outboundMessage, writeBufferSize),
@@ -202,7 +205,17 @@ func (connection *Connection) handleSubscribe(topics []string) {
 		return
 	}
 
-	result := connection.hub.Subscribe(connection, topics)
+	allowedTopics := make([]string, 0, len(topics))
+	unauthorizedTopics := make([]string, 0)
+	for _, topic := range normalizeTopics(topics) {
+		if CanSubscribeTopic(connection.roles, topic) {
+			allowedTopics = append(allowedTopics, topic)
+			continue
+		}
+		unauthorizedTopics = append(unauthorizedTopics, topic)
+	}
+
+	result := connection.hub.Subscribe(connection, allowedTopics)
 	if len(result.SubscribedTopics) > 0 {
 		connection.logger.Info(
 			"subscribe",
@@ -231,6 +244,13 @@ func (connection *Connection) handleSubscribe(topics []string) {
 			ErrorCodeLimitExceeded,
 			"subscription limit exceeded",
 			result.LimitedTopics,
+		)
+	}
+	if len(unauthorizedTopics) > 0 {
+		connection.enqueueError(
+			ErrorCodeUnauthorized,
+			"topic subscription is forbidden",
+			unauthorizedTopics,
 		)
 	}
 }
@@ -426,4 +446,19 @@ func (connection *Connection) SessionID() string {
 
 func (connection *Connection) String() string {
 	return fmt.Sprintf("session=%s subject=%s", connection.sessionID, connection.subject)
+}
+
+func (connection *Connection) CloseCode() int {
+	return int(connection.closeCode)
+}
+
+func (connection *Connection) CloseReason() string {
+	return strings.TrimSpace(connection.closeReason)
+}
+
+func (connection *Connection) DurationMS() int64 {
+	if connection.openedAt.IsZero() {
+		return 0
+	}
+	return time.Since(connection.openedAt).Milliseconds()
 }

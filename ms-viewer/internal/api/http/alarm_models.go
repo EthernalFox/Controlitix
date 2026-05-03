@@ -57,6 +57,29 @@ type acknowledgeRequest struct {
 	Note *string `json:"note"`
 }
 
+type bulkAcknowledgeRequestItem struct {
+	TagID string `json:"tag_id"`
+}
+
+type bulkAcknowledgeRequest struct {
+	Items []bulkAcknowledgeRequestItem `json:"items"`
+	Note  *string                      `json:"note,omitempty"`
+}
+
+type bulkAcknowledgeItemResponse struct {
+	TagID  string  `json:"tag_id"`
+	Status string  `json:"status"`
+	State  *string `json:"state,omitempty"`
+}
+
+type bulkAcknowledgeResponse struct {
+	Items    []bulkAcknowledgeItemResponse `json:"items"`
+	AckedAt  string                        `json:"acked_at"`
+	ActorID  string                        `json:"actor_id"`
+	SuccessN int                           `json:"success_n"`
+	FailedN  int                           `json:"failed_n"`
+}
+
 func mapAlarmsListResponse(result domain.AlarmListResult) alarmsListResponse {
 	items := make([]alarmRecordResponse, 0, len(result.Items))
 	for _, item := range result.Items {
@@ -127,3 +150,27 @@ func mapAlarmDetailResponse(detail domain.AlarmDetail) alarmDetailResponse {
 	}
 }
 
+func mapBulkAcknowledgeResponse(result domain.AlarmBulkAcknowledgeResult) bulkAcknowledgeResponse {
+	items := make([]bulkAcknowledgeItemResponse, 0, len(result.Items))
+	for _, item := range result.Items {
+		var state *string
+		if item.State != nil {
+			value := item.State.String()
+			state = &value
+		}
+
+		items = append(items, bulkAcknowledgeItemResponse{
+			TagID:  item.TagID.String(),
+			Status: string(item.Status),
+			State:  state,
+		})
+	}
+
+	return bulkAcknowledgeResponse{
+		Items:    items,
+		AckedAt:  result.AckedAt.UTC().Format(time.RFC3339Nano),
+		ActorID:  result.ActorID,
+		SuccessN: result.SuccessN,
+		FailedN:  result.FailedN,
+	}
+}

@@ -15,10 +15,14 @@ import (
 
 type DiagramsHandler struct {
 	diagramUseCase DiagramUseCase
+	auditUseCase   AuditRecorder
 }
 
-func NewDiagramsHandler(diagramUseCase DiagramUseCase) *DiagramsHandler {
-	return &DiagramsHandler{diagramUseCase: diagramUseCase}
+func NewDiagramsHandler(diagramUseCase DiagramUseCase, auditUseCase AuditRecorder) *DiagramsHandler {
+	return &DiagramsHandler{
+		diagramUseCase: diagramUseCase,
+		auditUseCase:   auditUseCase,
+	}
 }
 
 func (handler *DiagramsHandler) GetObjects(
@@ -92,6 +96,17 @@ func (handler *DiagramsHandler) GetDiagram(
 	if useCaseError != nil {
 		writeDiagramError(responseWriter, useCaseError)
 		return
+	}
+	if handler.auditUseCase != nil {
+		handler.auditUseCase.Record(request.Context(), domain.AuditEvent{
+			Action: "diagram.opened",
+			Target: domain.AuditTarget{
+				Type: "diagram",
+				ID:   diagramID.String(),
+				Name: diagram.Name,
+			},
+			Result: domain.AuditResultSuccess,
+		})
 	}
 
 	responseWriter.Header().Set("Cache-Control", "private, max-age=10")

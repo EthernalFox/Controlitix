@@ -346,3 +346,75 @@ Server pushes:
 ### Kafka topic
 
 Producer publishes alarm events to `alarms.events` (message key = tag_id).
+
+## Notifier (debug, 0035)
+
+### GET /api/notifier/chats
+
+Debug endpoint for checking Telegram chat bindings used by notifier routing.
+
+Query params:
+- enabled: bool
+- role: string
+- object_id: uuid
+
+Response:
+- items[]: id, chat_id, title, role, object_id, severity_min, enabled
+- total
+
+## Authorization (0036)
+
+All `/api/*` endpoints require JWT and role checks.
+
+- `401` => missing/invalid/expired token
+- `403` => token is valid, but role is not allowed for endpoint
+
+Role mapping:
+- `GET /api/trends*`, `GET /api/tags`, `GET /api/objects*`, `GET /api/diagrams*`, `GET /api/alarms*` => `operator|engineer|admin`
+- `POST /api/alarms/{tagId}/acknowledge` => `operator|admin`
+- `GET /api/notifier/chats` => `engineer|admin`
+- `GET /api/ws` (upgrade) => `operator|engineer|admin`
+
+## Bulk acknowledge
+
+`POST /api/alarms/acknowledge`
+
+Request:
+
+```json
+{
+  "items": [
+    { "tag_id": "<uuid>" }
+  ],
+  "note": "Принято в работу"
+}
+```
+
+- `items`: от 1 до 200 уникальных `tag_id` (дубликаты в теле тихо дедуплицируются).
+- `note`: опционально, до 500 символов.
+
+Response body:
+
+```json
+{
+  "items": [
+    { "tag_id": "<uuid>", "status": "acked", "state": "hi" },
+    { "tag_id": "<uuid>", "status": "not_active" }
+  ],
+  "acked_at": "2026-05-01T10:01:00.123Z",
+  "actor_id": "user-1",
+  "success_n": 1,
+  "failed_n": 1
+}
+```
+
+HTTP status:
+
+- `200 OK`: все элементы acked.
+- `207 Multi-Status`: смешанный результат.
+- `409 Conflict`: ни один элемент не acked.
+- `422 Unprocessable Entity`: `/errors/alarms/bulk-size`, `/errors/alarms/note-too-long`.
+
+WS:
+
+- На успешные элементы сервер отправляет один frame `{"t":"alarms_batch","events":[...]}` в topic `alarms`.

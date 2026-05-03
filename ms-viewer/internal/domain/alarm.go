@@ -176,6 +176,30 @@ type AlarmAcknowledgeResult struct {
 	Event AlarmEvent
 }
 
+type AlarmBulkAcknowledgeItemStatus string
+
+const (
+	AlarmBulkAckStatusAcked        AlarmBulkAcknowledgeItemStatus = "acked"
+	AlarmBulkAckStatusNotActive    AlarmBulkAcknowledgeItemStatus = "not_active"
+	AlarmBulkAckStatusNotFound     AlarmBulkAcknowledgeItemStatus = "not_found"
+	AlarmBulkAckStatusAlreadyAcked AlarmBulkAcknowledgeItemStatus = "already_acked"
+)
+
+type AlarmBulkAcknowledgeItemResult struct {
+	TagID  uuid.UUID
+	Status AlarmBulkAcknowledgeItemStatus
+	State  *AlarmState
+	Event  *AlarmEvent
+}
+
+type AlarmBulkAcknowledgeResult struct {
+	Items    []AlarmBulkAcknowledgeItemResult
+	AckedAt  time.Time
+	ActorID  string
+	SuccessN int
+	FailedN  int
+}
+
 func ParseAlarmListStatus(value string) AlarmListStatus {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case string(AlarmListStatusAcked):

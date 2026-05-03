@@ -48,6 +48,19 @@ type AlarmUseCase interface {
 		actorID string,
 		note *string,
 	) (domain.AlarmAcknowledgeResult, error)
+	AcknowledgeBulk(
+		ctx context.Context,
+		tagIDs []uuid.UUID,
+		actorID string,
+		note *string,
+	) (domain.AlarmBulkAcknowledgeResult, error)
+}
+
+type NotifierUseCase interface {
+	ListChats(
+		ctx context.Context,
+		filter domain.TelegramChatFilter,
+	) (domain.TelegramChatListResult, error)
 }
 
 type ReadinessChecker interface {
@@ -59,6 +72,8 @@ type RouterOptions struct {
 	TagUseCase      TagUseCase
 	DiagramUseCase  DiagramUseCase
 	AlarmUseCase    AlarmUseCase
+	NotifierUseCase NotifierUseCase
+	AuditUseCase    AuditRecorder
 	AuthMiddleware  func(http.Handler) http.Handler
 	WSHandler       http.Handler
 	DatabaseChecker ReadinessChecker
@@ -74,8 +89,9 @@ func NewRouter(options RouterOptions) http.Handler {
 
 	trendsHandler := NewTrendsHandler(options.TrendUseCase)
 	tagsHandler := NewTagsHandler(options.TagUseCase)
-	diagramsHandler := NewDiagramsHandler(options.DiagramUseCase)
-	alarmsHandler := NewAlarmsHandler(options.AlarmUseCase)
+	diagramsHandler := NewDiagramsHandler(options.DiagramUseCase, options.AuditUseCase)
+	alarmsHandler := NewAlarmsHandler(options.AlarmUseCase, options.AuditUseCase)
+	notifierHandler := NewNotifierHandler(options.NotifierUseCase)
 
 	router := chi.NewRouter()
 	router.Use(RequestID)
@@ -128,16 +144,42 @@ func NewRouter(options RouterOptions) http.Handler {
 			if options.AuthMiddleware != nil {
 				securedRouter.Use(options.AuthMiddleware)
 			}
-			securedRouter.Get("/trends/{tagId}", trendsHandler.GetTrend)
-			securedRouter.Get("/trends", trendsHandler.GetTrends)
-			securedRouter.Get("/tags", tagsHandler.GetTags)
-			securedRouter.Get("/objects", diagramsHandler.GetObjects)
-			securedRouter.Get("/objects/{objectId}/diagrams", diagramsHandler.GetObjectDiagrams)
-			securedRouter.Get("/diagrams/{diagramId}", diagramsHandler.GetDiagram)
-			securedRouter.Get("/diagrams/{diagramId}/snapshot", diagramsHandler.GetDiagramSnapshot)
-			securedRouter.Get("/alarms", alarmsHandler.GetAlarms)
-			securedRouter.Get("/alarms/{tagId}", alarmsHandler.GetAlarm)
-			securedRouter.Post("/alarms/{tagId}/acknowledge", alarmsHandler.Acknowledge)
+			securedRouter.With(
+				RequireAnyRole(options.AuditUseCase, "operator", "engineer", "admin"),
+			).Get("/trends/{tagId}", trendsHandler.GetTrend)
+			securedRouter.With(
+				RequireAnyRole(options.AuditUseCase, "operator", "engineer", "admin"),
+			).Get("/trends", trendsHandler.GetTrends)
+			securedRouter.With(
+				RequireAnyRole(options.AuditUseCase, "operator", "engineer", "admin"),
+			).Get("/tags", tagsHandler.GetTags)
+			securedRouter.With(
+				RequireAnyRole(options.AuditUseCase, "operator", "engineer", "admin"),
+			).Get("/objects", diagramsHandler.GetObjects)
+			securedRouter.With(
+				RequireAnyRole(options.AuditUseCase, "operator", "engineer", "admin"),
+			).Get("/objects/{objectId}/diagrams", diagramsHandler.GetObjectDiagrams)
+			securedRouter.With(
+				RequireAnyRole(options.AuditUseCase, "operator", "engineer", "admin"),
+			).Get("/diagrams/{diagramId}", diagramsHandler.GetDiagram)
+			securedRouter.With(
+				RequireAnyRole(options.AuditUseCase, "operator", "engineer", "admin"),
+			).Get("/diagrams/{diagramId}/snapshot", diagramsHandler.GetDiagramSnapshot)
+			securedRouter.With(
+				RequireAnyRole(options.AuditUseCase, "operator", "engineer", "admin"),
+			).Get("/alarms", alarmsHandler.GetAlarms)
+			securedRouter.With(
+				RequireAnyRole(options.AuditUseCase, "operator", "engineer", "admin"),
+			).Get("/alarms/{tagId}", alarmsHandler.GetAlarm)
+			securedRouter.With(
+				RequireAnyRole(options.AuditUseCase, "operator", "admin"),
+			).Post("/alarms/{tagId}/acknowledge", alarmsHandler.Acknowledge)
+			securedRouter.With(
+				RequireAnyRole(options.AuditUseCase, "operator", "admin"),
+			).Post("/alarms/acknowledge", alarmsHandler.AcknowledgeBulk)
+			securedRouter.With(
+				RequireAnyRole(options.AuditUseCase, "engineer", "admin"),
+			).Get("/notifier/chats", notifierHandler.GetChats)
 		})
 	})
 

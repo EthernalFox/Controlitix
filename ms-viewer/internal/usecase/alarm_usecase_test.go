@@ -114,6 +114,85 @@ func (repository *fakeAlarmRepository) Acknowledge(
 	}, nil
 }
 
+func (repository *fakeAlarmRepository) AcknowledgeBulk(
+	_ context.Context,
+	tagIDs []uuid.UUID,
+	actorID string,
+	note *string,
+	ts time.Time,
+) (domain.AlarmBulkAcknowledgeResult, error) {
+	items := make([]domain.AlarmBulkAcknowledgeItemResult, 0, len(tagIDs))
+	successCount := 0
+	failedCount := 0
+
+	for _, tagID := range tagIDs {
+		record, exists := repository.stateByTag[tagID]
+		if !exists {
+			failedCount++
+			items = append(items, domain.AlarmBulkAcknowledgeItemResult{
+				TagID:  tagID,
+				Status: domain.AlarmBulkAckStatusNotFound,
+			})
+			continue
+		}
+		if record.State == domain.AlarmStateOK {
+			failedCount++
+			items = append(items, domain.AlarmBulkAcknowledgeItemResult{
+				TagID:  tagID,
+				Status: domain.AlarmBulkAckStatusNotActive,
+			})
+			continue
+		}
+		if ack, acked := repository.acks[tagID]; acked && ack.State == record.State {
+			stateCopy := record.State
+			failedCount++
+			items = append(items, domain.AlarmBulkAcknowledgeItemResult{
+				TagID:  tagID,
+				Status: domain.AlarmBulkAckStatusAlreadyAcked,
+				State:  &stateCopy,
+			})
+			continue
+		}
+
+		ack := domain.AlarmAck{
+			State:   record.State,
+			ActorID: actorID,
+			Note:    note,
+			AckedAt: ts,
+		}
+		repository.acks[tagID] = ack
+		eventActorID := actorID
+		event := domain.AlarmEvent{
+			ID:        uuid.New(),
+			TagID:     tagID,
+			EventType: domain.AlarmEventAcked,
+			StateFrom: record.State,
+			StateTo:   record.State,
+			Quality:   record.LastQuality,
+			TS:        ts,
+			ActorID:   &eventActorID,
+			Note:      note,
+		}
+		repository.events = append(repository.events, event)
+		stateCopy := record.State
+		successCount++
+		items = append(items, domain.AlarmBulkAcknowledgeItemResult{
+			TagID:  tagID,
+			Status: domain.AlarmBulkAckStatusAcked,
+			State:  &stateCopy,
+			Event:  &event,
+		})
+	}
+
+	return domain.AlarmBulkAcknowledgeResult{
+		Items:    items,
+		AckedAt:  ts,
+		ActorID:  actorID,
+		SuccessN: successCount,
+		FailedN:  failedCount,
+	}, nil
+}
+
 func (repository *fakeAlarmRepository) ListAlarms(
 	_ context.Context,
 	query domain.AlarmListQuery,
@@ -175,12 +254,21 @@ func (publisher *fakeAlarmPublisher) Publish(_ context.Context, event domain.Ala
 	return nil
 }
 
+func (publisher *fakeAlarmPublisher) PublishBatch(_ context.Context, events []domain.AlarmEvent) error {
+	publisher.events = append(publisher.events, events...)
+	return nil
+}
+
 type fakeAlarmBroadcaster struct {
 	events []domain.AlarmEvent
 }
 
 func (broadcaster *fakeAlarmBroadcaster) BroadcastAlarm(event domain.AlarmEvent) {
 	broadcaster.events = append(broadcaster.events, event)
+}
+
+func (broadcaster *fakeAlarmBroadcaster) BroadcastAlarmBatch(events []domain.AlarmEvent) {
+	broadcaster.events = append(broadcaster.events, events...)
 }
 
 func TestAlarmUseCaseIngestValueCreatesTransition(t *testing.T) {
@@ -196,7 +284,7 @@ func TestAlarmUseCaseIngestValueCreatesTransition(t *testing.T) {
 	}
 	publisher := &fakeAlarmPublisher{}
 	broadcaster := &fakeAlarmBroadcaster{}
-	useCase := NewAlarmUseCase(repository, publisher, broadcaster, 2, time.Minute, nil)
+	useCase := NewAlarmUseCase(repository, publisher, broadcaster, nil, 2, time.Minute, nil)
 
 	initializeError := useCase.Initialize(context.Background())
 	if initializeError != nil {

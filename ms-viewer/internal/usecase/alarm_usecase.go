@@ -21,16 +21,19 @@ const (
 
 type AlarmEventPublisher interface {
 	Publish(ctx context.Context, event domain.AlarmEvent) error
+	PublishBatch(ctx context.Context, events []domain.AlarmEvent) error
 }
 
 type AlarmRealtimeBroadcaster interface {
 	BroadcastAlarm(event domain.AlarmEvent)
+	BroadcastAlarmBatch(events []domain.AlarmEvent)
 }
 
 type AlarmUseCase struct {
 	repository         domain.AlarmRepository
 	publisher          AlarmEventPublisher
 	realtimeBroadcaster AlarmRealtimeBroadcaster
+	auditUseCase       *AuditUseCase
 	hysteresisPercent  float64
 	commLossTimeout    time.Duration
 	logger             *slog.Logger
@@ -43,6 +46,7 @@ func NewAlarmUseCase(
 	repository domain.AlarmRepository,
 	publisher AlarmEventPublisher,
 	realtimeBroadcaster AlarmRealtimeBroadcaster,
+	auditUseCase *AuditUseCase,
 	hysteresisPercent float64,
 	commLossTimeout time.Duration,
 	logger *slog.Logger,
@@ -61,6 +65,7 @@ func NewAlarmUseCase(
 		repository:          repository,
 		publisher:           publisher,
 		realtimeBroadcaster: realtimeBroadcaster,
+		auditUseCase:        auditUseCase,
 		hysteresisPercent:   hysteresisPercent,
 		commLossTimeout:     commLossTimeout,
 		logger:              logger,
@@ -169,6 +174,40 @@ func (useCase *AlarmUseCase) Acknowledge(
 	}
 
 	useCase.publishAndBroadcastEvent(result.Event)
+	return result, nil
+}
+
+func (useCase *AlarmUseCase) AcknowledgeBulk(
+	ctx context.Context,
+	tagIDs []uuid.UUID,
+	actorID string,
+	note *string,
+) (domain.AlarmBulkAcknowledgeResult, error) {
+	if useCase.repository == nil {
+		return domain.AlarmBulkAcknowledgeResult{}, errors.New("alarm repository is not configured")
+	}
+
+	result, acknowledgeError := useCase.repository.AcknowledgeBulk(
+		ctx,
+		tagIDs,
+		strings.TrimSpace(actorID),
+		note,
+		time.Now().UTC(),
+	)
+	if acknowledgeError != nil {
+		return domain.AlarmBulkAcknowledgeResult{}, acknowledgeError
+	}
+
+	ackedEvents := make([]domain.AlarmEvent, 0, len(result.Items))
+	for _, item := range result.Items {
+		if item.Status != domain.AlarmBulkAckStatusAcked || item.Event == nil {
+			continue
+		}
+		ackedEvents = append(ackedEvents, *item.Event)
+	}
+
+	useCase.publishAndBroadcastBatch(ackedEvents)
+
 	return result, nil
 }
 
@@ -303,6 +342,8 @@ func (useCase *AlarmUseCase) getSetpoints(tagID uuid.UUID) domain.Setpoints {
 }
 
 func (useCase *AlarmUseCase) publishAndBroadcastEvent(event domain.AlarmEvent) {
+	useCase.recordSystemAuditEvent(event)
+
 	if useCase.publisher != nil {
 		go func() {
 			for attempt := 0; attempt < 3; attempt++ {
@@ -332,4 +373,58 @@ func (useCase *AlarmUseCase) publishAndBroadcastEvent(event domain.AlarmEvent) {
 	if useCase.realtimeBroadcaster != nil {
 		useCase.realtimeBroadcaster.BroadcastAlarm(event)
 	}
+}
+
+func (useCase *AlarmUseCase) publishAndBroadcastBatch(events []domain.AlarmEvent) {
+	if len(events) == 0 {
+		return
+	}
+
+	if useCase.publisher != nil {
+		go func() {
+			publishError := useCase.publisher.PublishBatch(context.Background(), events)
+			if publishError != nil {
+				useCase.logger.Warn(
+					"failed to publish alarm events batch",
+					"method",
+					"AlarmUseCase.publishAndBroadcastBatch",
+					"events_n",
+					len(events),
+					"error",
+					publishError,
+				)
+			}
+		}()
+	}
+
+	if useCase.realtimeBroadcaster != nil {
+		useCase.realtimeBroadcaster.BroadcastAlarmBatch(events)
+	}
+}
+
+func (useCase *AlarmUseCase) recordSystemAuditEvent(event domain.AlarmEvent) {
+	if useCase.auditUseCase == nil {
+		return
+	}
+
+	action := ""
+	switch event.EventType {
+	case domain.AlarmEventRaised:
+		action = "alarm.raised"
+	case domain.AlarmEventCleared:
+		action = "alarm.cleared"
+	}
+	if action == "" {
+		return
+	}
+
+	useCase.auditUseCase.Record(context.Background(), domain.AuditEvent{
+		Action: action,
+		Target: domain.AuditTarget{
+			Type:  "alarm",
+			ID:    event.TagID.String(),
+			State: event.StateTo.String(),
+		},
+		Result: domain.AuditResultSuccess,
+	})
 }

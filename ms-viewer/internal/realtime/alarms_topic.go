@@ -11,6 +11,10 @@ func (connection *Connection) enqueueAlarm(event domain.AlarmEvent) {
 	connection.enqueuePayload(BuildAlarmMessage(event), event.TagID.String())
 }
 
+func (connection *Connection) enqueueAlarmsBatch(events []domain.AlarmEvent) {
+	connection.enqueuePayload(BuildAlarmsBatchMessage(events), TopicAlarms)
+}
+
 func (connection *Connection) enqueueAlarmsSnapshot(records []domain.AlarmStateRecord) {
 	connection.enqueuePayload(BuildAlarmsSnapshotMessage(records), TopicAlarms)
 }

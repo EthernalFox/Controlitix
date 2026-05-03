@@ -18,9 +18,10 @@ import (
 )
 
 type stubAlarmUseCase struct {
-	listFunc        func(ctx context.Context, query domain.AlarmListQuery) (domain.AlarmListResult, error)
-	getFunc         func(ctx context.Context, tagID uuid.UUID) (domain.AlarmDetail, error)
-	acknowledgeFunc func(ctx context.Context, tagID uuid.UUID, actorID string, note *string) (domain.AlarmAcknowledgeResult, error)
+	listFunc            func(ctx context.Context, query domain.AlarmListQuery) (domain.AlarmListResult, error)
+	getFunc             func(ctx context.Context, tagID uuid.UUID) (domain.AlarmDetail, error)
+	acknowledgeFunc     func(ctx context.Context, tagID uuid.UUID, actorID string, note *string) (domain.AlarmAcknowledgeResult, error)
+	acknowledgeBulkFunc func(ctx context.Context, tagIDs []uuid.UUID, actorID string, note *string) (domain.AlarmBulkAcknowledgeResult, error)
 }
 
 func (stub *stubAlarmUseCase) ListAlarms(
@@ -46,6 +47,18 @@ func (stub *stubAlarmUseCase) Acknowledge(
 	return stub.acknowledgeFunc(ctx, tagID, actorID, note)
 }
 
+func (stub *stubAlarmUseCase) AcknowledgeBulk(
+	ctx context.Context,
+	tagIDs []uuid.UUID,
+	actorID string,
+	note *string,
+) (domain.AlarmBulkAcknowledgeResult, error) {
+	if stub.acknowledgeBulkFunc == nil {
+		return domain.AlarmBulkAcknowledgeResult{}, nil
+	}
+	return stub.acknowledgeBulkFunc(ctx, tagIDs, actorID, note)
+}
+
 func TestGetAlarmsParsesFilters(t *testing.T) {
 	captured := domain.AlarmListQuery{}
 	objectID := uuid.New()
@@ -60,7 +73,7 @@ func TestGetAlarmsParsesFilters(t *testing.T) {
 		acknowledgeFunc: func(_ context.Context, _ uuid.UUID, _ string, _ *string) (domain.AlarmAcknowledgeResult, error) {
 			return domain.AlarmAcknowledgeResult{}, nil
 		},
-	})
+	}, nil)
 
 	router := chi.NewRouter()
 	router.Get("/api/alarms", handler.GetAlarms)
@@ -103,7 +116,7 @@ func TestAcknowledgeReturnsConflictForAlreadyAcked(t *testing.T) {
 		acknowledgeFunc: func(_ context.Context, _ uuid.UUID, _ string, _ *string) (domain.AlarmAcknowledgeResult, error) {
 			return domain.AlarmAcknowledgeResult{}, domain.ErrAlarmAlreadyAcked
 		},
-	})
+	}, nil)
 
 	router := chi.NewRouter()
 	router.Post("/api/alarms/{tagId}/acknowledge", handler.Acknowledge)
@@ -165,7 +178,7 @@ func TestAcknowledgeUsesPrincipalSubject(t *testing.T) {
 				},
 			}, nil
 		},
-	})
+	}, nil)
 
 	router := chi.NewRouter()
 	router.Post("/api/alarms/{tagId}/acknowledge", handler.Acknowledge)
@@ -188,4 +201,3 @@ func TestAcknowledgeUsesPrincipalSubject(t *testing.T) {
 		t.Fatalf("expected actor_id operator-1, got %s", capturedActorID)
 	}
 }
-

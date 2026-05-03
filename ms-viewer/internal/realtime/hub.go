@@ -552,6 +552,23 @@ func (hub *Hub) BroadcastAlarm(event domain.AlarmEvent) {
 	}
 }
 
+func (hub *Hub) BroadcastAlarmBatch(events []domain.AlarmEvent) {
+	if len(events) == 0 {
+		return
+	}
+
+	hub.mutex.RLock()
+	connections := make([]*Connection, 0, len(hub.alarmsSubscribers))
+	for connection := range hub.alarmsSubscribers {
+		connections = append(connections, connection)
+	}
+	hub.mutex.RUnlock()
+
+	for _, connection := range connections {
+		connection.enqueueAlarmsBatch(events)
+	}
+}
+
 func (hub *Hub) LoadActiveAlarmSnapshot(
 	ctx context.Context,
 ) ([]domain.AlarmStateRecord, error) {

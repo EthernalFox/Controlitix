@@ -20,6 +20,16 @@ const (
 	kafkaConfigChangedTopicKey         = "MS_VIEWER_KAFKA_CONFIG_CHANGED_TOPIC"
 	kafkaConfigChangedGroupKey         = "MS_VIEWER_KAFKA_CONFIG_CHANGED_GROUP"
 	kafkaAlarmsTopicEnvironmentKey     = "MS_VIEWER_KAFKA_ALARMS_TOPIC"
+	kafkaAlarmsGroupEnvironmentKey     = "MS_VIEWER_KAFKA_ALARMS_GROUP"
+	kafkaAuditTopicEnvironmentKey      = "MS_VIEWER_KAFKA_AUDIT_TOPIC"
+	auditBufferSizeEnvironmentKey      = "MS_VIEWER_AUDIT_BUFFER_SIZE"
+	telegramBotTokenEnvironmentKey     = "TELEGRAM_BOT_TOKEN"
+	telegramAPIURLEnvironmentKey       = "MS_VIEWER_TELEGRAM_API_URL"
+	telegramTimeoutSecEnvironmentKey   = "MS_VIEWER_TELEGRAM_REQUEST_TIMEOUT_SEC"
+	notifierMaxAttemptsEnvironmentKey  = "MS_VIEWER_NOTIFIER_MAX_ATTEMPTS"
+	notifierBackoffSecEnvironmentKey   = "MS_VIEWER_NOTIFIER_BACKOFF_SEC"
+	notifierEscalationSecEnvironmentKey = "MS_VIEWER_NOTIFIER_ESCALATION_DELAY_SEC"
+	notifierBatchPollSecEnvironmentKey = "MS_VIEWER_NOTIFIER_BATCH_POLL_SEC"
 	logLevelEnvironmentKey             = "MS_VIEWER_LOG_LEVEL"
 	shutdownTimeoutEnvironmentKey      = "MS_VIEWER_SHUTDOWN_TIMEOUT_SEC"
 	lastValueTTLEnvironmentKey         = "MS_VIEWER_LAST_VALUE_CACHE_TTL_SEC"
@@ -48,6 +58,15 @@ const (
 	defaultKafkaConfigChangedTopic = "config.changed"
 	defaultKafkaConfigChangedGroup = "ms-viewer-config-changed"
 	defaultKafkaAlarmsTopic    = "alarms.events"
+	defaultKafkaAlarmsGroup    = "ms-viewer-notifier"
+	defaultKafkaAuditTopic     = "audit.logs"
+	defaultAuditBufferSize     = 1000
+	defaultTelegramAPIURL      = "https://api.telegram.org"
+	defaultTelegramTimeoutSec  = 10
+	defaultNotifierMaxAttempts = 5
+	defaultNotifierBackoffSec  = 60
+	defaultNotifierEscalationSec = 300
+	defaultNotifierBatchPollSec = 30
 	defaultLogLevel            = "info"
 	defaultShutdownTimeout     = 10
 	defaultLastValueTTL        = 86400
@@ -80,6 +99,16 @@ type Config struct {
 	KafkaConfigChangedTopic   string
 	KafkaConfigChangedGroup   string
 	KafkaAlarmsTopic          string
+	KafkaAlarmsGroup          string
+	KafkaAuditTopic           string
+	AuditBufferSize           int
+	TelegramBotToken          string
+	TelegramAPIURL            string
+	TelegramRequestTimeoutSec int
+	NotifierMaxAttempts       int
+	NotifierBackoffSec        int
+	NotifierEscalationDelaySec int
+	NotifierBatchPollSec      int
 	LogLevel                  string
 	ShutdownTimeoutSec        int
 	LastValueCacheTTLSec      int
@@ -124,6 +153,19 @@ func LoadConfig() (Config, error) {
 		KafkaAlarmsTopic: readEnvironmentValue(
 			kafkaAlarmsTopicEnvironmentKey,
 			defaultKafkaAlarmsTopic,
+		),
+		KafkaAlarmsGroup: readEnvironmentValue(
+			kafkaAlarmsGroupEnvironmentKey,
+			defaultKafkaAlarmsGroup,
+		),
+		KafkaAuditTopic: readEnvironmentValue(
+			kafkaAuditTopicEnvironmentKey,
+			defaultKafkaAuditTopic,
+		),
+		TelegramBotToken: strings.TrimSpace(os.Getenv(telegramBotTokenEnvironmentKey)),
+		TelegramAPIURL: readEnvironmentValue(
+			telegramAPIURLEnvironmentKey,
+			defaultTelegramAPIURL,
 		),
 		LogLevel:             readEnvironmentValue(logLevelEnvironmentKey, defaultLogLevel),
 		JWKSURL:              strings.TrimSpace(os.Getenv(jwksURLEnvironmentKey)),
@@ -251,6 +293,48 @@ func LoadConfig() (Config, error) {
 	if parseError != nil {
 		return Config{}, parseError
 	}
+	configuration.TelegramRequestTimeoutSec, parseError = parseEnvironmentInt(
+		telegramTimeoutSecEnvironmentKey,
+		defaultTelegramTimeoutSec,
+	)
+	if parseError != nil {
+		return Config{}, parseError
+	}
+	configuration.NotifierMaxAttempts, parseError = parseEnvironmentInt(
+		notifierMaxAttemptsEnvironmentKey,
+		defaultNotifierMaxAttempts,
+	)
+	if parseError != nil {
+		return Config{}, parseError
+	}
+	configuration.NotifierBackoffSec, parseError = parseEnvironmentInt(
+		notifierBackoffSecEnvironmentKey,
+		defaultNotifierBackoffSec,
+	)
+	if parseError != nil {
+		return Config{}, parseError
+	}
+	configuration.NotifierEscalationDelaySec, parseError = parseEnvironmentInt(
+		notifierEscalationSecEnvironmentKey,
+		defaultNotifierEscalationSec,
+	)
+	if parseError != nil {
+		return Config{}, parseError
+	}
+	configuration.NotifierBatchPollSec, parseError = parseEnvironmentInt(
+		notifierBatchPollSecEnvironmentKey,
+		defaultNotifierBatchPollSec,
+	)
+	if parseError != nil {
+		return Config{}, parseError
+	}
+	configuration.AuditBufferSize, parseError = parseEnvironmentInt(
+		auditBufferSizeEnvironmentKey,
+		defaultAuditBufferSize,
+	)
+	if parseError != nil {
+		return Config{}, parseError
+	}
 
 	if configuration.DatabaseURL == "" {
 		return Config{}, errors.New("database connection is not configured")
@@ -314,6 +398,24 @@ func LoadConfig() (Config, error) {
 	}
 	if configuration.AlarmCommLossTimeoutSec <= 0 {
 		return Config{}, errors.New("alarm comm loss timeout must be positive")
+	}
+	if configuration.TelegramRequestTimeoutSec <= 0 {
+		return Config{}, errors.New("telegram request timeout must be positive")
+	}
+	if configuration.NotifierMaxAttempts <= 0 {
+		return Config{}, errors.New("notifier max attempts must be positive")
+	}
+	if configuration.NotifierBackoffSec <= 0 {
+		return Config{}, errors.New("notifier backoff must be positive")
+	}
+	if configuration.NotifierEscalationDelaySec <= 0 {
+		return Config{}, errors.New("notifier escalation delay must be positive")
+	}
+	if configuration.NotifierBatchPollSec <= 0 {
+		return Config{}, errors.New("notifier batch poll interval must be positive")
+	}
+	if configuration.AuditBufferSize <= 0 {
+		return Config{}, errors.New("audit buffer size must be positive")
 	}
 
 	return configuration, nil

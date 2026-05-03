@@ -385,6 +385,184 @@ RETURNING id, value, quality, created_at
 	}, nil
 }
 
+func (repository *AlarmRepository) AcknowledgeBulk(
+	ctx context.Context,
+	tagIDs []uuid.UUID,
+	actorID string,
+	note *string,
+	ts time.Time,
+) (domain.AlarmBulkAcknowledgeResult, error) {
+	normalizedActorID := strings.TrimSpace(actorID)
+	transaction, beginError := repository.pool.Begin(ctx)
+	if beginError != nil {
+		return domain.AlarmBulkAcknowledgeResult{}, fmt.Errorf("begin alarm bulk acknowledge tx: %w", beginError)
+	}
+	defer func() {
+		_ = transaction.Rollback(ctx)
+	}()
+
+	type stateRow struct {
+		state    domain.AlarmState
+		ackState *domain.AlarmState
+	}
+
+	const lockStatesQuery = `
+SELECT s.tag_id, s.state, a.state
+FROM alarms.states s
+LEFT JOIN alarms.acks a ON a.tag_id = s.tag_id
+WHERE s.tag_id = ANY($1)
+FOR UPDATE
+`
+
+	rows, queryError := transaction.Query(ctx, lockStatesQuery, tagIDs)
+	if queryError != nil {
+		return domain.AlarmBulkAcknowledgeResult{}, fmt.Errorf("lock bulk alarm states: %w", queryError)
+	}
+	defer rows.Close()
+
+	stateByTagID := make(map[uuid.UUID]stateRow, len(tagIDs))
+	for rows.Next() {
+		var (
+			tagIDValue    uuid.UUID
+			stateCode     int16
+			ackStateCode  *int16
+			decodedAckState *domain.AlarmState
+		)
+		if scanError := rows.Scan(&tagIDValue, &stateCode, &ackStateCode); scanError != nil {
+			return domain.AlarmBulkAcknowledgeResult{}, fmt.Errorf("scan bulk alarm state: %w", scanError)
+		}
+		if ackStateCode != nil {
+			value := domain.AlarmState(*ackStateCode)
+			decodedAckState = &value
+		}
+		stateByTagID[tagIDValue] = stateRow{
+			state:    domain.AlarmState(stateCode),
+			ackState: decodedAckState,
+		}
+	}
+	if rowsError := rows.Err(); rowsError != nil {
+		return domain.AlarmBulkAcknowledgeResult{}, fmt.Errorf("iterate bulk alarm states: %w", rowsError)
+	}
+
+	const upsertAckQuery = `
+INSERT INTO alarms.acks (tag_id, state, actor_id, note, acked_at)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (tag_id) DO UPDATE SET
+    state = EXCLUDED.state,
+    actor_id = EXCLUDED.actor_id,
+    note = EXCLUDED.note,
+    acked_at = EXCLUDED.acked_at
+`
+
+	const insertEventQuery = `
+INSERT INTO alarms.events (
+    tag_id, event_type, state_from, state_to, value, quality, ts, actor_id, note
+)
+VALUES (
+    $1, $2, $3, $4,
+    (SELECT last_value FROM alarms.states WHERE tag_id = $1),
+    (SELECT last_quality FROM alarms.states WHERE tag_id = $1),
+    $5, $6, $7
+)
+RETURNING id, value, quality, created_at
+`
+
+	ackedAt := ts.UTC()
+	results := make([]domain.AlarmBulkAcknowledgeItemResult, 0, len(tagIDs))
+	successCount := 0
+	failedCount := 0
+
+	for _, requestedTagID := range tagIDs {
+		state, exists := stateByTagID[requestedTagID]
+		if !exists {
+			failedCount++
+			results = append(results, domain.AlarmBulkAcknowledgeItemResult{
+				TagID:  requestedTagID,
+				Status: domain.AlarmBulkAckStatusNotFound,
+			})
+			continue
+		}
+
+		currentState := state.state
+		if currentState == domain.AlarmStateOK {
+			failedCount++
+			results = append(results, domain.AlarmBulkAcknowledgeItemResult{
+				TagID:  requestedTagID,
+				Status: domain.AlarmBulkAckStatusNotActive,
+			})
+			continue
+		}
+		if state.ackState != nil && *state.ackState == currentState {
+			stateCopy := currentState
+			failedCount++
+			results = append(results, domain.AlarmBulkAcknowledgeItemResult{
+				TagID:  requestedTagID,
+				Status: domain.AlarmBulkAckStatusAlreadyAcked,
+				State:  &stateCopy,
+			})
+			continue
+		}
+
+		if _, upsertAckError := transaction.Exec(
+			ctx,
+			upsertAckQuery,
+			requestedTagID,
+			int16(currentState),
+			normalizedActorID,
+			note,
+			ackedAt,
+		); upsertAckError != nil {
+			return domain.AlarmBulkAcknowledgeResult{}, fmt.Errorf("upsert alarm ack (bulk): %w", upsertAckError)
+		}
+
+		event := domain.AlarmEvent{
+			TagID:     requestedTagID,
+			EventType: domain.AlarmEventAcked,
+			StateFrom: currentState,
+			StateTo:   currentState,
+			TS:        ackedAt,
+		}
+		qualityCode := int16(0)
+		if scanEventError := transaction.QueryRow(
+			ctx,
+			insertEventQuery,
+			requestedTagID,
+			int16(event.EventType),
+			int16(currentState),
+			int16(currentState),
+			ackedAt,
+			normalizedActorID,
+			note,
+		).Scan(&event.ID, &event.Value, &qualityCode, &event.CreatedAt); scanEventError != nil {
+			return domain.AlarmBulkAcknowledgeResult{}, fmt.Errorf("insert alarm ack event (bulk): %w", scanEventError)
+		}
+		event.Quality = domain.QualityFromCode(qualityCode)
+		event.ActorID = &normalizedActorID
+		event.Note = note
+
+		stateCopy := currentState
+		successCount++
+		results = append(results, domain.AlarmBulkAcknowledgeItemResult{
+			TagID:  requestedTagID,
+			Status: domain.AlarmBulkAckStatusAcked,
+			State:  &stateCopy,
+			Event:  &event,
+		})
+	}
+
+	if commitError := transaction.Commit(ctx); commitError != nil {
+		return domain.AlarmBulkAcknowledgeResult{}, fmt.Errorf("commit alarm bulk acknowledge tx: %w", commitError)
+	}
+
+	return domain.AlarmBulkAcknowledgeResult{
+		Items:    results,
+		AckedAt:  ackedAt,
+		ActorID:  normalizedActorID,
+		SuccessN: successCount,
+		FailedN:  failedCount,
+	}, nil
+}
+
 func (repository *AlarmRepository) ListAlarms(
 	ctx context.Context,
 	query domain.AlarmListQuery,

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	segmentkafka "github.com/segmentio/kafka-go"
@@ -17,6 +18,9 @@ type AlarmsProducer struct {
 	writer *segmentkafka.Writer
 	topic  string
 	logger *slog.Logger
+
+	retryMutex sync.Mutex
+	retryQueue []segmentkafka.Message
 }
 
 type alarmEventPayload struct {
@@ -55,10 +59,30 @@ func NewAlarmsProducer(brokers []string, topic string, logger *slog.Logger) *Ala
 }
 
 func (producer *AlarmsProducer) Publish(ctx context.Context, event domain.AlarmEvent) error {
+	return producer.PublishBatch(ctx, []domain.AlarmEvent{event})
+}
+
+func (producer *AlarmsProducer) PublishBatch(ctx context.Context, events []domain.AlarmEvent) error {
 	if producer.writer == nil {
 		return errors.New("kafka writer is not configured")
 	}
+	if len(events) == 0 {
+		return nil
+	}
 
+	messages := make([]segmentkafka.Message, 0, len(events))
+	for _, event := range events {
+		message, buildError := producer.buildMessage(event)
+		if buildError != nil {
+			return buildError
+		}
+		messages = append(messages, message)
+	}
+
+	return producer.writeWithRetryQueue(ctx, messages)
+}
+
+func (producer *AlarmsProducer) buildMessage(event domain.AlarmEvent) (segmentkafka.Message, error) {
 	payload, marshalError := json.Marshal(alarmEventPayload{
 		ID:        event.ID.String(),
 		TagID:     event.TagID.String(),
@@ -72,16 +96,44 @@ func (producer *AlarmsProducer) Publish(ctx context.Context, event domain.AlarmE
 		Note:      event.Note,
 	})
 	if marshalError != nil {
-		return fmt.Errorf("marshal alarm event: %w", marshalError)
+		return segmentkafka.Message{}, fmt.Errorf("marshal alarm event: %w", marshalError)
 	}
 
-	message := segmentkafka.Message{
+	return segmentkafka.Message{
 		Key:   []byte(event.TagID.String()),
 		Value: payload,
+	}, nil
+}
+
+func (producer *AlarmsProducer) writeWithRetryQueue(
+	ctx context.Context,
+	messages []segmentkafka.Message,
+) error {
+	producer.retryMutex.Lock()
+	payload := append(append([]segmentkafka.Message{}, producer.retryQueue...), messages...)
+	producer.retryQueue = nil
+	producer.retryMutex.Unlock()
+
+	if len(payload) == 0 {
+		return nil
 	}
 
-	if publishError := producer.writer.WriteMessages(ctx, message); publishError != nil {
-		return fmt.Errorf("publish alarm event: %w", publishError)
+	if publishError := producer.writer.WriteMessages(ctx, payload...); publishError != nil {
+		producer.retryMutex.Lock()
+		producer.retryQueue = append(producer.retryQueue, payload...)
+		producer.retryMutex.Unlock()
+
+		producer.logger.Error(
+			"failed to publish alarm events batch",
+			"method",
+			"AlarmsProducer.writeWithRetryQueue",
+			"events_n",
+			len(payload),
+			"error",
+			publishError,
+		)
+
+		return fmt.Errorf("publish alarm events batch: %w", publishError)
 	}
 
 	return nil

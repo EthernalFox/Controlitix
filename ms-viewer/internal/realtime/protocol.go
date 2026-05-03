@@ -35,6 +35,7 @@ const (
 	ServerTypeError         = "error"
 	ServerTypeConfigChanged = "config.changed"
 	ServerTypeAlarm         = "alarm"
+	ServerTypeAlarmsBatch    = "alarms_batch"
 	ServerTypeAlarmsSnapshot = "alarms_snapshot"
 	ServerTypeTopicsChanged  = "topics_changed"
 )
@@ -124,6 +125,12 @@ type AlarmMessage struct {
 	TS        string   `json:"ts"`
 	ActorID   *string  `json:"actor_id"`
 	Note      *string  `json:"note"`
+}
+
+type AlarmsBatchMessage struct {
+	T      string         `json:"t"`
+	TS     string         `json:"ts"`
+	Events []AlarmMessage `json:"events"`
 }
 
 type AlarmsSnapshotMessage struct {
@@ -308,6 +315,19 @@ func BuildAlarmMessage(event domain.AlarmEvent) AlarmMessage {
 		TS:        event.TS.UTC().Format(time.RFC3339Nano),
 		ActorID:   event.ActorID,
 		Note:      event.Note,
+	}
+}
+
+func BuildAlarmsBatchMessage(events []domain.AlarmEvent) AlarmsBatchMessage {
+	messages := make([]AlarmMessage, 0, len(events))
+	for _, event := range events {
+		messages = append(messages, BuildAlarmMessage(event))
+	}
+
+	return AlarmsBatchMessage{
+		T:      ServerTypeAlarmsBatch,
+		TS:     time.Now().UTC().Format(time.RFC3339Nano),
+		Events: messages,
 	}
 }
 

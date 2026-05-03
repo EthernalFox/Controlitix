@@ -148,7 +148,7 @@ func (validator *Validator) Parse(
 		return nil, ErrTokenMalformed
 	}
 
-	tokenID, _ := claims.GetID()
+	tokenID := extractStringClaim(claims["jti"])
 	roles, _ := extractStringSliceClaim(claims["roles"])
 	scope := strings.TrimSpace(extractStringClaim(claims["scope"]))
 	scopes := []string{}

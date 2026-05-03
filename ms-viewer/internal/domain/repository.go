@@ -62,6 +62,13 @@ type AlarmRepository interface {
 		note *string,
 		ts time.Time,
 	) (AlarmAcknowledgeResult, error)
+	AcknowledgeBulk(
+		ctx context.Context,
+		tagIDs []uuid.UUID,
+		actorID string,
+		note *string,
+		ts time.Time,
+	) (AlarmBulkAcknowledgeResult, error)
 	ListAlarms(ctx context.Context, query AlarmListQuery) (AlarmListResult, error)
 	GetAlarm(ctx context.Context, tagID uuid.UUID) (AlarmDetail, error)
 	ListActiveUnacked(ctx context.Context, limit int) ([]AlarmStateRecord, error)

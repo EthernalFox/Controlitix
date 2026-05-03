@@ -1,4 +1,4 @@
-﻿package http
+package http
 
 import (
 	"context"
@@ -16,10 +16,10 @@ import (
 )
 
 type stubDiagramUseCase struct {
-	listObjectsFunc func(ctx context.Context, query domain.ObjectListQuery) (domain.ObjectListResult, error)
+	listObjectsFunc  func(ctx context.Context, query domain.ObjectListQuery) (domain.ObjectListResult, error)
 	listDiagramsFunc func(ctx context.Context, query domain.DiagramListQuery) (domain.DiagramListResult, error)
-	getDiagramFunc func(ctx context.Context, diagramID uuid.UUID) (domain.Diagram, error)
-	getSnapshotFunc func(ctx context.Context, diagramID uuid.UUID) (domain.DiagramSnapshot, error)
+	getDiagramFunc   func(ctx context.Context, diagramID uuid.UUID) (domain.Diagram, error)
+	getSnapshotFunc  func(ctx context.Context, diagramID uuid.UUID) (domain.DiagramSnapshot, error)
 }
 
 func (stub *stubDiagramUseCase) ListObjectsWithPublishedDiagrams(
@@ -64,7 +64,7 @@ func TestGetDiagramReturnsNotPublishedProblem(t *testing.T) {
 		getSnapshotFunc: func(_ context.Context, _ uuid.UUID) (domain.DiagramSnapshot, error) {
 			return domain.DiagramSnapshot{}, nil
 		},
-	})
+	}, nil)
 
 	router := chi.NewRouter()
 	router.Get("/api/diagrams/{diagramId}", handler.GetDiagram)
@@ -100,7 +100,7 @@ func TestGetDiagramSnapshotReturnsCacheUnavailableProblem(t *testing.T) {
 		getSnapshotFunc: func(_ context.Context, _ uuid.UUID) (domain.DiagramSnapshot, error) {
 			return domain.DiagramSnapshot{}, fmt.Errorf("redis unavailable: %w", domain.ErrUnavailable)
 		},
-	})
+	}, nil)
 
 	router := chi.NewRouter()
 	router.Get("/api/diagrams/{diagramId}/snapshot", handler.GetDiagramSnapshot)
@@ -147,7 +147,7 @@ func TestGetDiagramReturnsCacheControlHeader(t *testing.T) {
 		getSnapshotFunc: func(_ context.Context, _ uuid.UUID) (domain.DiagramSnapshot, error) {
 			return domain.DiagramSnapshot{}, nil
 		},
-	})
+	}, nil)
 
 	router := chi.NewRouter()
 	router.Get("/api/diagrams/{diagramId}", handler.GetDiagram)
@@ -178,7 +178,7 @@ func TestGetObjectDiagramsReturnsInvalidRequestProblem(t *testing.T) {
 		getSnapshotFunc: func(_ context.Context, _ uuid.UUID) (domain.DiagramSnapshot, error) {
 			return domain.DiagramSnapshot{}, nil
 		},
-	})
+	}, nil)
 
 	router := chi.NewRouter()
 	router.Get("/api/objects/{objectId}/diagrams", handler.GetObjectDiagrams)
