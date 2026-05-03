@@ -1,11 +1,12 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
 
 import { diagramsApi } from "@entities/diagrams";
 import type { Diagram } from "@entities/diagrams";
 import { useFiguresStore } from "@entities/figures";
-import { EditorCanvas, FRAME_PRESETS, useEditorStore } from "@features/editor";
+import { EditorCanvas, FRAME_PRESETS, useEditorShortcuts, useEditorStore } from "@features/editor";
 import { Layout, Panel, Stack, Text } from "@shared/ui";
+import { ConnectionLostBanner } from "@widgets/EditorBanners";
 import { EditorFooter } from "@widgets/EditorFooter";
 import { EditorToolbar } from "@widgets/EditorToolbar";
 import { LayerList } from "@widgets/LayerList";
@@ -25,14 +26,76 @@ const isFramePreset = (value: unknown): value is { label: string; width: number;
   );
 };
 
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
 export default function EditorPage() {
   const { diagramId, objectId } = useParams<{ diagramId: string; objectId: string }>();
   const { fetchFigures, reset: resetFigures } = useFiguresStore();
-  const { reset: resetEditor, setFrame } = useEditorStore();
+  const {
+    reset: resetEditor,
+    setConnectionStatus,
+    setFrame,
+    setZoom,
+    zoom
+  } = useEditorStore();
+
+  const onlineTimerRef = useRef<number | null>(null);
 
   const [diagram, setDiagram] = useState<Diagram | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEditorShortcuts({
+    onUndo: () => window.dispatchEvent(new Event("editor:undo")),
+    onRedo: () => window.dispatchEvent(new Event("editor:redo")),
+    onDelete: () => window.dispatchEvent(new Event("editor:delete-selection")),
+    onDuplicate: () => window.dispatchEvent(new Event("editor:duplicate-selection")),
+    onZoomIn: () => setZoom(clamp(zoom * 1.1, 0.1, 5)),
+    onZoomOut: () => setZoom(clamp(zoom / 1.1, 0.1, 5)),
+    onFitToScreen: () => window.dispatchEvent(new Event("editor:fit-to-screen")),
+    onPublish: () => window.dispatchEvent(new Event("editor:publish")),
+    onBindTag: () => window.dispatchEvent(new Event("editor:open-binding"))
+  });
+
+  useEffect(() => {
+    const syncConnectionStatus = (nextStatus: "online" | "offline") => {
+      if (nextStatus === "offline") {
+        if (onlineTimerRef.current !== null) {
+          window.clearTimeout(onlineTimerRef.current);
+          onlineTimerRef.current = null;
+        }
+
+        setConnectionStatus("offline");
+        return;
+      }
+
+      if (onlineTimerRef.current !== null) {
+        window.clearTimeout(onlineTimerRef.current);
+      }
+
+      onlineTimerRef.current = window.setTimeout(() => {
+        setConnectionStatus("online");
+      }, 500);
+    };
+
+    syncConnectionStatus(window.navigator.onLine ? "online" : "offline");
+
+    const onOnline = () => syncConnectionStatus("online");
+    const onOffline = () => syncConnectionStatus("offline");
+
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+
+      if (onlineTimerRef.current !== null) {
+        window.clearTimeout(onlineTimerRef.current);
+        onlineTimerRef.current = null;
+      }
+    };
+  }, [setConnectionStatus]);
 
   useEffect(() => {
     if (!diagramId) {
@@ -44,8 +107,7 @@ export default function EditorPage() {
       try {
         const parsedFrame = JSON.parse(storedFrame);
         if (isFramePreset(parsedFrame)) {
-          const knownPreset =
-            FRAME_PRESETS.find((preset) => preset.label === parsedFrame.label) ?? parsedFrame;
+          const knownPreset = FRAME_PRESETS.find((preset) => preset.label === parsedFrame.label) ?? parsedFrame;
           setFrame(knownPreset);
         }
       } catch {
@@ -98,6 +160,7 @@ export default function EditorPage() {
   }, [diagramId, fetchFigures, resetEditor, resetFigures]);
 
   const isPublished = useMemo(() => Boolean(diagram?.publishedAt), [diagram]);
+  const connectionStatus = useEditorStore((state) => state.connectionStatus);
 
   if (!diagramId || !objectId) {
     return (
@@ -125,6 +188,7 @@ export default function EditorPage() {
 
   return (
     <Layout
+      mode="editor"
       header={
         <EditorToolbar
           diagramId={diagramId}
@@ -153,7 +217,12 @@ export default function EditorPage() {
         asideWidth: { base: 280, md: 320 }
       }}
     >
-      <EditorCanvas diagramId={diagramId} />
+      <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
+        {connectionStatus === "offline" && <ConnectionLostBanner />}
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <EditorCanvas diagramId={diagramId} />
+        </div>
+      </div>
     </Layout>
   );
 }

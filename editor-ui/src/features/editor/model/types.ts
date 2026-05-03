@@ -1,5 +1,10 @@
 ﻿export type EditorTool = "select" | "rect" | "circle" | "line" | "text" | "image";
 
+export interface Point {
+  x: number;
+  y: number;
+}
+
 export interface FramePreset {
   label: string;
   width: number;
@@ -14,4 +19,6 @@ export const FRAME_PRESETS: FramePreset[] = [
   { label: "XGA", width: 1024, height: 768 }
 ];
 
-export type SaveStatus = "saved" | "saving" | "error";
+export type SaveStatus = "idle" | "saving" | "saved" | "error";
+
+export type ConnectionStatus = "online" | "offline";

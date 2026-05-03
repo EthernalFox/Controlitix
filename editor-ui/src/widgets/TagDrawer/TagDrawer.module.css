@@ -1,0 +1,11 @@
+.sectionTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mantine-color-text);
+}
+
+.footerActions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}

@@ -1,4 +1,4 @@
-import type { SnmpV1V2cSettings } from "@entities/devices";
+﻿import type { SnmpV1V2cSettings } from "@entities/devices";
 import { NumberInput, Stack, TextInput } from "@shared/ui";
 
 interface SnmpV1V2cFieldsProps {
@@ -22,11 +22,7 @@ const toNumber = (value: string | number, fallback: number) => {
   return fallback;
 };
 
-export const SnmpV1V2cFields = ({
-  settings,
-  onChange,
-  errors
-}: SnmpV1V2cFieldsProps) => {
+export const SnmpV1V2cFields = ({ settings, onChange, errors }: SnmpV1V2cFieldsProps) => {
   return (
     <Stack gap="sm">
       <TextInput
@@ -53,6 +49,7 @@ export const SnmpV1V2cFields = ({
         error={errors?.port}
         min={1}
         max={65535}
+        mono
         required
       />
       <TextInput
@@ -78,9 +75,24 @@ export const SnmpV1V2cFields = ({
         }
         error={errors?.timeout_ms}
         min={1}
+        mono
+        required
+      />
+      <NumberInput
+        label="Retry count"
+        value={settings.retry_count}
+        onChange={(value) =>
+          onChange({
+            ...settings,
+            retry_count: toNumber(value, settings.retry_count)
+          })
+        }
+        error={errors?.retry_count}
+        min={0}
+        max={10}
+        mono
         required
       />
     </Stack>
   );
 };
-

@@ -1,0 +1,88 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--mantine-font-family-monospace);
+  border-radius: 999px;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  letter-spacing: 0.02em;
+}
+
+.icon {
+  width: 8px;
+  height: 8px;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.ok {
+  color: var(--ctrx-alarm-ok);
+  border-color: var(--ctrx-alarm-ok);
+  background: color-mix(in srgb, var(--ctrx-alarm-ok) 15%, transparent);
+}
+
+.warn {
+  color: var(--ctrx-alarm-warn);
+  border-color: var(--ctrx-alarm-warn);
+  background: color-mix(in srgb, var(--ctrx-alarm-warn) 15%, transparent);
+}
+
+.crit {
+  color: var(--ctrx-alarm-crit);
+  border-color: var(--ctrx-alarm-crit);
+  background: color-mix(in srgb, var(--ctrx-alarm-crit) 15%, transparent);
+}
+
+.uncertain {
+  color: var(--ctrx-alarm-uncertain);
+  border-color: var(--ctrx-alarm-uncertain);
+  background: color-mix(in srgb, var(--ctrx-alarm-uncertain) 15%, transparent);
+}
+
+.bad {
+  color: var(--ctrx-alarm-bad);
+  border-color: var(--ctrx-alarm-bad);
+  background: color-mix(in srgb, var(--ctrx-alarm-bad) 15%, transparent);
+}
+
+.comm {
+  color: var(--ctrx-alarm-comm);
+  border-color: var(--ctrx-alarm-comm);
+  background: color-mix(in srgb, var(--ctrx-alarm-comm) 15%, transparent);
+}
+
+.offline {
+  color: var(--ctrx-alarm-offline);
+  border-color: var(--ctrx-alarm-offline);
+  background: color-mix(in srgb, var(--ctrx-alarm-offline) 15%, transparent);
+}
+
+.ack {
+  color: var(--ctrx-alarm-ack);
+  border-color: var(--ctrx-alarm-ack);
+  background: color-mix(in srgb, var(--ctrx-alarm-ack) 15%, transparent);
+}
+
+.blink {
+  animation: blink-alarm 800ms ease-in-out infinite;
+}
+
+@keyframes blink-alarm {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blink {
+    animation: none;
+  }
+}
+

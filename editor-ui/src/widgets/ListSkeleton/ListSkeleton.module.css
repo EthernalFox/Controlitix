@@ -1,0 +1,28 @@
+.grid {
+  width: 100%;
+}
+
+.skeletonCard {
+  width: 100%;
+  height: 120px;
+  border-radius: 14px;
+  background: linear-gradient(90deg, var(--ctrx-glass-bg-soft), var(--ctrx-glass-bg-strong), var(--ctrx-glass-bg-soft));
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeletonCard {
+    animation: none;
+  }
+}

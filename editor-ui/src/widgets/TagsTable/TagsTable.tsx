@@ -6,6 +6,8 @@ import { REGISTER_TYPE_LABELS, type Tag } from "@entities/tags";
 import type { Unit } from "@entities/units";
 import { ActionIcon, Group, Table, Text, Tooltip } from "@shared/ui";
 
+import styles from "./TagsTable.module.css";
+
 interface TagsTableProps {
   tags: Tag[];
   devices: Device[];
@@ -43,21 +45,12 @@ const toRegisterBadge = (tag: Tag) => {
   return REGISTER_TYPE_LABELS[address.registerType] ?? address.registerType;
 };
 
-export const TagsTable = ({
-  dataTypes,
-  devices,
-  onDelete,
-  onEdit,
-  tags,
-  units
-}: TagsTableProps) => {
+export const TagsTable = ({ dataTypes, devices, onDelete, onEdit, tags, units }: TagsTableProps) => {
   return (
     <Table
-      withTableBorder
-      striped
-      highlightOnHover
+      className={styles.table}
       data={{
-        head: ["Название", "Устройство", "Тип данных", "Единица", "Адрес", ""],
+        head: ["Статус", "Название", "Устройство", "Тип данных", "Единица", "Адрес", ""],
         body: tags.map((tag) => {
           const device = devices.find((item) => item.id === tag.deviceId);
           const dataType = dataTypes.find((item) => item.id === tag.params?.dataTypeId);
@@ -65,14 +58,13 @@ export const TagsTable = ({
           const registerBadge = toRegisterBadge(tag);
 
           return [
-            <Text key={`${tag.id}-name`} truncate>
-              {tag.name}
-            </Text>,
+            <span key={`${tag.id}-dot`} className={styles.statusDot} />,
+            tag.name,
             device?.name ?? "—",
             dataType?.name ?? "—",
             toUnitLabel(unit),
             <Group key={`${tag.id}-address`} gap="xs" wrap="nowrap">
-              <Text size="sm" c="dimmed" truncate>
+              <Text size="sm" c="dimmed" truncate className={styles.mono}>
                 {toAddressLabel(tag)}
               </Text>
               {registerBadge && (
@@ -83,21 +75,12 @@ export const TagsTable = ({
             </Group>,
             <Group key={`${tag.id}-actions`} gap="xs" justify="center" wrap="nowrap">
               <Tooltip label="Редактировать">
-                <ActionIcon
-                  variant="light"
-                  aria-label="Edit tag"
-                  onClick={() => onEdit(tag.id)}
-                >
+                <ActionIcon variant="light" aria-label="Edit tag" onClick={() => onEdit(tag.id)}>
                   <IconPencil size={14} />
                 </ActionIcon>
               </Tooltip>
               <Tooltip label="Удалить">
-                <ActionIcon
-                  variant="light"
-                  color="red"
-                  aria-label="Delete tag"
-                  onClick={() => onDelete(tag)}
-                >
+                <ActionIcon variant="light" color="red" aria-label="Delete tag" onClick={() => onDelete(tag)}>
                   <IconTrash size={14} />
                 </ActionIcon>
               </Tooltip>

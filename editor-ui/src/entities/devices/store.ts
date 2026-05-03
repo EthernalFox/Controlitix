@@ -115,7 +115,8 @@ const normalizeSettings = (
       host: readString(source, "host", "host", ""),
       port: readNumber(source, "port", "port", 161),
       community: readString(source, "community", "community", "public"),
-      timeout_ms: readNumber(source, "timeout_ms", "timeoutMs", 5000)
+      timeout_ms: readNumber(source, "timeout_ms", "timeoutMs", 5000),
+      retry_count: readNumber(source, "retry_count", "retryCount", 1)
     };
   }
 
@@ -124,6 +125,13 @@ const normalizeSettings = (
       host: readString(source, "host", "host", ""),
       port: readNumber(source, "port", "port", 161),
       security_name: readString(source, "security_name", "securityName", ""),
+      security_level: (() => {
+        const value = readString(source, "security_level", "securityLevel", "authPriv");
+        if (value === "noAuthNoPriv" || value === "authNoPriv" || value === "authPriv") {
+          return value;
+        }
+        return "authPriv";
+      })(),
       auth_protocol: (() => {
         const value = readString(source, "auth_protocol", "authProtocol", "SHA");
         return value === "MD5" ? "MD5" : "SHA";
@@ -134,7 +142,8 @@ const normalizeSettings = (
         return value === "DES" ? "DES" : "AES";
       })(),
       priv_password: readString(source, "priv_password", "privPassword", ""),
-      timeout_ms: readNumber(source, "timeout_ms", "timeoutMs", 5000)
+      timeout_ms: readNumber(source, "timeout_ms", "timeoutMs", 5000),
+      retry_count: readNumber(source, "retry_count", "retryCount", 1)
     };
   }
 

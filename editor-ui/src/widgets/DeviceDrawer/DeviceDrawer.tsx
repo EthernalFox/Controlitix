@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+﻿import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import {
   cloneDefaultSettings,
@@ -12,16 +12,7 @@ import {
   type SnmpV3Settings
 } from "@entities/devices";
 import { ApiRequestError } from "@shared/api";
-import {
-  Button,
-  Drawer,
-  Select,
-  Skeleton,
-  Stack,
-  Text,
-  TextInput,
-  Textarea
-} from "@shared/ui";
+import { Button, Drawer, Group, Select, Skeleton, Stack, Text, TextInput, Textarea } from "@shared/ui";
 
 import { DeviceSettingsForm } from "./DeviceSettingsForm";
 
@@ -33,8 +24,7 @@ interface DeviceDrawerProps {
   onClose: () => void;
 }
 
-const isDeviceTypeName = (value: string): value is DeviceTypeName =>
-  Object.hasOwn(DEVICE_TYPE_LABELS, value);
+const isDeviceTypeName = (value: string): value is DeviceTypeName => Object.hasOwn(DEVICE_TYPE_LABELS, value);
 
 const toErrorMessage = (error: unknown) => {
   if (error instanceof ApiRequestError) {
@@ -54,18 +44,13 @@ const collectFieldErrors = (error: unknown) => {
   }
 
   return error.payload.errors.reduce<Record<string, string>>((acc, fieldError) => {
-    const field = fieldError.field.startsWith("settings.")
-      ? fieldError.field.replace("settings.", "")
-      : fieldError.field;
+    const field = fieldError.field.startsWith("settings.") ? fieldError.field.replace("settings.", "") : fieldError.field;
     acc[field] = fieldError.message;
     return acc;
   }, {});
 };
 
-const validateSettings = (
-  typeName: DeviceTypeName,
-  settings: DeviceSettings
-): Record<string, string> => {
+const validateSettings = (typeName: DeviceTypeName, settings: DeviceSettings): Record<string, string> => {
   const errors: Record<string, string> = {};
 
   const checkPort = (port: number) => {
@@ -75,8 +60,14 @@ const validateSettings = (
   };
 
   const checkTimeout = (timeout: number) => {
-    if (timeout <= 0) {
-      errors.timeout_ms = "Timeout должен быть больше 0";
+    if (timeout < 100 || timeout > 30000) {
+      errors.timeout_ms = "Timeout должен быть в диапазоне 100-30000";
+    }
+  };
+
+  const checkRetryCount = (retryCount: number) => {
+    if (retryCount < 0 || retryCount > 10) {
+      errors.retry_count = "Retry count должен быть в диапазоне 0-10";
     }
   };
 
@@ -113,6 +104,7 @@ const validateSettings = (
     }
     checkPort(typedSettings.port);
     checkTimeout(typedSettings.timeout_ms);
+    checkRetryCount(typedSettings.retry_count);
   }
 
   if (typeName === "snmp_v3") {
@@ -123,32 +115,28 @@ const validateSettings = (
     if (!typedSettings.security_name.trim()) {
       errors.security_name = "Укажите security name";
     }
-    if (!typedSettings.auth_password.trim()) {
+
+    if (
+      (typedSettings.security_level === "authNoPriv" || typedSettings.security_level === "authPriv") &&
+      !typedSettings.auth_password.trim()
+    ) {
       errors.auth_password = "Укажите auth password";
     }
-    if (!typedSettings.priv_password.trim()) {
+
+    if (typedSettings.security_level === "authPriv" && !typedSettings.priv_password.trim()) {
       errors.priv_password = "Укажите priv password";
     }
+
     checkPort(typedSettings.port);
     checkTimeout(typedSettings.timeout_ms);
+    checkRetryCount(typedSettings.retry_count);
   }
 
   return errors;
 };
 
-export const DeviceDrawer = ({
-  opened,
-  mode,
-  objectId,
-  deviceId,
-  onClose
-}: DeviceDrawerProps) => {
-  const {
-    createDevice,
-    deviceTypes,
-    getDevice,
-    updateDevice
-  } = useDevicesStore();
+export const DeviceDrawer = ({ opened, mode, objectId, deviceId, onClose }: DeviceDrawerProps) => {
+  const { createDevice, deviceTypes, getDevice, updateDevice } = useDevicesStore();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -217,8 +205,7 @@ export const DeviceDrawer = ({
     };
   }, [deviceId, getDevice, mode, opened]);
 
-  const drawerTitle =
-    mode === "create" ? "Новое устройство" : `Редактирование: ${name || "устройство"}`;
+  const drawerTitle = mode === "create" ? "Новое устройство" : `Редактирование: ${name || "устройство"}`;
 
   const onTypeChange = (nextTypeId: string | null) => {
     setTypeId(nextTypeId);
@@ -233,9 +220,7 @@ export const DeviceDrawer = ({
       return;
     }
 
-    const nextType = deviceTypes.find(
-      (deviceType) => String(deviceType.id) === nextTypeId
-    );
+    const nextType = deviceTypes.find((deviceType) => String(deviceType.id) === nextTypeId);
     if (!nextType) {
       setSettings(null);
       return;
@@ -308,13 +293,7 @@ export const DeviceDrawer = ({
   };
 
   return (
-    <Drawer
-      opened={opened}
-      onClose={onClose}
-      title={drawerTitle}
-      position="right"
-      size={420}
-    >
+    <Drawer opened={opened} onClose={onClose} title={drawerTitle} position="right" size={380}>
       {isLoadingDevice ? (
         <Stack>
           <Skeleton h={36} radius="sm" />
@@ -338,7 +317,7 @@ export const DeviceDrawer = ({
               value={description}
               onChange={(event) => setDescription(event.currentTarget.value)}
               error={fieldErrors.description}
-              minRows={3}
+              minRows={2}
             />
             <Select
               label="Тип устройства"
@@ -359,12 +338,7 @@ export const DeviceDrawer = ({
               </Text>
             )}
 
-            <DeviceSettingsForm
-              typeName={selectedTypeName}
-              settings={settings}
-              onChange={setSettings}
-              errors={fieldErrors}
-            />
+            <DeviceSettingsForm typeName={selectedTypeName} settings={settings} onChange={setSettings} errors={fieldErrors} />
 
             {typeId && selectedType && (
               <Text size="xs" c="dimmed">
@@ -378,17 +352,14 @@ export const DeviceDrawer = ({
               </Text>
             )}
 
-            <Button type="submit" loading={isSubmitting}>
-              Сохранить
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onClose}
-              disabled={isSubmitting}
-            >
-              Отмена
-            </Button>
+            <Group justify="end" gap="sm">
+              <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
+                Отмена
+              </Button>
+              <Button type="submit" loading={isSubmitting}>
+                Сохранить
+              </Button>
+            </Group>
           </Stack>
         </form>
       )}

@@ -8,7 +8,9 @@
 
 import { shapes } from "@entities/shapes";
 import { useEditorStore } from "@features/editor";
-import { ActionIcon, Group, Stack, Text, Tooltip } from "@shared/ui";
+import { ActionIcon, Stack, Text, Tooltip } from "@shared/ui";
+
+import styles from "./ShapePalette.module.css";
 
 const MVP_SHAPES = ["rect", "circle", "line", "text", "image"] as const;
 
@@ -22,6 +24,14 @@ const ICON_BY_TYPE: Record<PaletteShapeType, React.ComponentType<{ size?: number
   image: IconPhoto
 };
 
+const SHORTCUT_BY_TYPE: Record<PaletteShapeType, string> = {
+  rect: "R",
+  circle: "C",
+  line: "L",
+  text: "T",
+  image: "I"
+};
+
 export const ShapePalette = () => {
   const { activeTool, setActiveTool } = useEditorStore();
 
@@ -30,7 +40,7 @@ export const ShapePalette = () => {
       <Text fw={600} size="sm">
         Фигуры
       </Text>
-      <Group gap="xs" wrap="wrap">
+      <div className={styles.paletteGrid}>
         {shapes
           .filter((shape): shape is { type: PaletteShapeType; label: string } =>
             MVP_SHAPES.includes(shape.type as PaletteShapeType)
@@ -40,18 +50,21 @@ export const ShapePalette = () => {
             const isActive = activeTool === shape.type;
 
             return (
-              <Tooltip key={shape.type} label={shape.label}>
-                <ActionIcon
-                  variant={isActive ? "filled" : "subtle"}
-                  onClick={() => setActiveTool(shape.type)}
-                  aria-label={shape.label}
-                >
-                  <Icon size={18} />
-                </ActionIcon>
-              </Tooltip>
+              <div key={shape.type} className={styles.paletteItem}>
+                <Tooltip label={shape.label}>
+                  <ActionIcon
+                    variant={isActive ? "filled" : "subtle"}
+                    onClick={() => setActiveTool(shape.type)}
+                    aria-label={shape.label}
+                  >
+                    <Icon size={18} />
+                  </ActionIcon>
+                </Tooltip>
+                <span className={styles.shortcut}>{SHORTCUT_BY_TYPE[shape.type]}</span>
+              </div>
             );
           })}
-      </Group>
+      </div>
     </Stack>
   );
 };

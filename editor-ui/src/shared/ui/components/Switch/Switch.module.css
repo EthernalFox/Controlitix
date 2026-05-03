@@ -1,0 +1,25 @@
+﻿.track {
+  width: 32px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--ctrx-glass-bg-soft);
+  border: 1px solid var(--ctrx-glass-border-inner);
+  transition: all 0.2s ease;
+}
+
+.root[data-checked] .track {
+  background: var(--mantine-color-deepBlue-6);
+  border-color: transparent;
+}
+
+[data-mantine-color-scheme="dark"] .root[data-checked] .track {
+  background: var(--mantine-color-deepBlue-5);
+}
+
+.thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--mantine-color-white);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--mantine-color-black) 20%, transparent);
+}

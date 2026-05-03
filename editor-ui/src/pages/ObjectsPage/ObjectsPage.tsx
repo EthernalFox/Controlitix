@@ -1,19 +1,13 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+﻿import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 
 import { useObjectsStore } from "@entities/objects";
 import { ApiRequestError } from "@shared/api";
 import { buildObjectPath } from "@shared/libs/router";
-import {
-  Button,
-  Card,
-  Group,
-  Modal,
-  Skeleton,
-  Stack,
-  Text,
-  TextInput
-} from "@shared/ui";
+import { Button, Card, Modal, Stack, Text, TextInput } from "@shared/ui";
+import { EmptyState } from "@widgets/EmptyState";
+import { ListSkeleton } from "@widgets/ListSkeleton";
+import { PageToolbar } from "@widgets/PageToolbar";
 
 const EMPTY_DESCRIPTION = "Без описания";
 
@@ -58,9 +52,7 @@ export default function ObjectsPage() {
       return objects;
     }
 
-    return objects.filter((object) =>
-      object.name.toLowerCase().includes(normalizedSearch)
-    );
+    return objects.filter((object) => object.name.toLowerCase().includes(normalizedSearch));
   }, [objects, search]);
 
   const closeModal = () => {
@@ -109,18 +101,17 @@ export default function ObjectsPage() {
 
   return (
     <>
-      <Stack p="md">
-        <Group justify="space-between" align="center">
-          <Text size="xl" fw={600}>
-            Объекты мониторинга
-          </Text>
-          <Button onClick={() => setIsCreateOpened(true)}>Создать объект</Button>
-        </Group>
-
-        <TextInput
-          placeholder="Поиск по названию..."
-          value={search}
-          onChange={(event) => setSearch(event.currentTarget.value)}
+      <Stack p="md" gap="md">
+        <PageToolbar
+          title="Объекты мониторинга"
+          search={
+            <TextInput
+              placeholder="Поиск по названию..."
+              value={search}
+              onChange={(event) => setSearch(event.currentTarget.value)}
+            />
+          }
+          primaryAction={<Button onClick={() => setIsCreateOpened(true)}>Создать объект</Button>}
         />
 
         {error && !isLoading && (
@@ -134,22 +125,16 @@ export default function ObjectsPage() {
           </Card>
         )}
 
-        {isLoading && !objects.length && (
-          <Stack>
-            <Skeleton h={96} radius="md" />
-            <Skeleton h={96} radius="md" />
-            <Skeleton h={96} radius="md" />
-          </Stack>
-        )}
+        {isLoading && !objects.length && <ListSkeleton cols={3} />}
 
         {!isLoading && !error && !filteredObjects.length && (
-          <Card withBorder p="md">
-            <Stack gap="xs">
-              <Text>Нет объектов мониторинга</Text>
-              <Button onClick={() => setIsCreateOpened(true)}>
-                Создать первый объект
-              </Button>
-            </Stack>
+          <Card variant="flat" withBorder p="lg">
+            <EmptyState
+              icon={<Text size="xl">◻</Text>}
+              title="Нет объектов"
+              description="Создайте первый объект мониторинга"
+              action={<Button onClick={() => setIsCreateOpened(true)}>Создать объект</Button>}
+            />
           </Card>
         )}
 
@@ -169,7 +154,7 @@ export default function ObjectsPage() {
                   }
                 }}
               >
-                <Card withBorder p="md">
+                <Card variant="glass" p="md">
                   <Stack gap={4}>
                     <Text fw={600}>{object.name}</Text>
                     <Text c="dimmed" size="sm">
@@ -186,11 +171,7 @@ export default function ObjectsPage() {
         )}
       </Stack>
 
-      <Modal
-        opened={isCreateOpened}
-        onClose={closeModal}
-        title="Создать объект мониторинга"
-      >
+      <Modal opened={isCreateOpened} onClose={closeModal} title="Создать объект мониторинга">
         <form onSubmit={onCreateSubmit}>
           <Stack>
             <TextInput

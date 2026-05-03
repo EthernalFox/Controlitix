@@ -1,0 +1,31 @@
+.root {
+  background: var(--ctrx-glass-bg-strong);
+  border: 1px solid var(--ctrx-glass-border);
+  border-left: 3px solid var(--mantine-color-deepBlue-6);
+  border-radius: 14px;
+  box-shadow: var(--ctrx-glass-shadow);
+  backdrop-filter: var(--ctrx-glass-blur);
+  -webkit-backdrop-filter: var(--ctrx-glass-blur);
+}
+
+.root[data-color="green"] {
+  border-left-color: var(--ctrx-alarm-ok);
+}
+
+.root[data-color="yellow"] {
+  border-left-color: var(--ctrx-alarm-warn);
+}
+
+.root[data-color="red"] {
+  border-left-color: var(--ctrx-alarm-crit);
+}
+
+.title {
+  color: var(--mantine-color-text);
+  font-weight: 600;
+}
+
+.description {
+  color: var(--mantine-color-dimmed);
+}
+

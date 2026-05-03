@@ -1,25 +1,10 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+﻿import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate, useParams } from "react-router";
 
 import { useObjectsStore } from "@entities/objects";
 import { ApiRequestError } from "@shared/api";
-import {
-  buildDevicesPath,
-  buildDiagramsPath,
-  buildTagsPath,
-  routePaths
-} from "@shared/libs/router";
-import {
-  ActionIcon,
-  Button,
-  Group,
-  Modal,
-  Stack,
-  Tabs,
-  Text,
-  Tooltip,
-  TextInput
-} from "@shared/ui";
+import { buildDevicesPath, buildDiagramsPath, buildTagsPath, routePaths } from "@shared/libs/router";
+import { ActionIcon, Button, Card, Group, Modal, Stack, Tabs, Text, Tooltip, TextInput } from "@shared/ui";
 
 const parseActiveTab = (pathname: string) => {
   const segments = pathname.split("/").filter(Boolean);
@@ -58,10 +43,7 @@ export default function ObjectDetailPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const object = useMemo(
-    () => objects.find((currentObject) => currentObject.id === objectId),
-    [objects, objectId]
-  );
+  const object = useMemo(() => objects.find((currentObject) => currentObject.id === objectId), [objects, objectId]);
 
   useEffect(() => {
     if (!objectId) {
@@ -200,62 +182,50 @@ export default function ObjectDetailPage() {
   return (
     <>
       <Stack p="md" gap="md">
-        <Stack gap={4}>
-          <Group justify="space-between" align="start">
-            <Stack gap={4}>
-              <Text size="xl" fw={600}>
-                {object.name}
-              </Text>
-              <Text c="dimmed">{object.description ?? "Без описания"}</Text>
-            </Stack>
-            <Group gap="xs">
-              <Tooltip label="Редактировать">
-                <ActionIcon
-                  variant="light"
-                  onClick={() => setIsEditOpened(true)}
-                  aria-label="Edit object"
-                >
-                  E
-                </ActionIcon>
-              </Tooltip>
-              <Tooltip label="Удалить">
-                <ActionIcon
-                  variant="light"
-                  color="red"
-                  onClick={() => setIsDeleteOpened(true)}
-                  aria-label="Delete object"
-                >
-                  D
-                </ActionIcon>
-              </Tooltip>
+        <Card variant="flat" p="md">
+          <Stack gap={4}>
+            <Group justify="space-between" align="start">
+              <Stack gap={4}>
+                <Text size="xl" fw={600}>
+                  {object.name}
+                </Text>
+                <Text c="dimmed">{object.description ?? "Без описания"}</Text>
+              </Stack>
+              <Group gap="xs">
+                <Tooltip label="Редактировать">
+                  <ActionIcon variant="light" onClick={() => setIsEditOpened(true)} aria-label="Edit object">
+                    E
+                  </ActionIcon>
+                </Tooltip>
+                <Tooltip label="Удалить">
+                  <ActionIcon variant="light" color="red" onClick={() => setIsDeleteOpened(true)} aria-label="Delete object">
+                    D
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
             </Group>
-          </Group>
-        </Stack>
+          </Stack>
+        </Card>
 
-        <Tabs value={parseActiveTab(pathname)}>
-          <Tabs.List>
-            <Tabs.Tab
-              value="devices"
-              onClick={() => navigate(buildDevicesPath(object.id))}
-            >
-              Устройства
-            </Tabs.Tab>
-            <Tabs.Tab
-              value="tags"
-              onClick={() => navigate(buildTagsPath(object.id))}
-            >
-              Теги
-            </Tabs.Tab>
-            <Tabs.Tab
-              value="diagrams"
-              onClick={() => navigate(buildDiagramsPath(object.id))}
-            >
-              Мнемосхемы
-            </Tabs.Tab>
-          </Tabs.List>
-        </Tabs>
+        <Card variant="flat" p="xs">
+          <Tabs value={parseActiveTab(pathname)}>
+            <Tabs.List>
+              <Tabs.Tab value="devices" onClick={() => navigate(buildDevicesPath(object.id))}>
+                Устройства
+              </Tabs.Tab>
+              <Tabs.Tab value="tags" onClick={() => navigate(buildTagsPath(object.id))}>
+                Теги
+              </Tabs.Tab>
+              <Tabs.Tab value="diagrams" onClick={() => navigate(buildDiagramsPath(object.id))}>
+                Мнемосхемы
+              </Tabs.Tab>
+            </Tabs.List>
+          </Tabs>
+        </Card>
 
-        <Outlet />
+        <Card variant="flat" p="md">
+          <Outlet />
+        </Card>
       </Stack>
 
       <Modal opened={isEditOpened} onClose={closeEditModal} title="Редактировать объект">
@@ -291,10 +261,7 @@ export default function ObjectDetailPage() {
 
       <Modal opened={isDeleteOpened} onClose={() => setIsDeleteOpened(false)} title="Удаление объекта">
         <Stack>
-          <Text>
-            Удалить объект "{object.name}"? Все устройства, теги и мнемосхемы будут
-            удалены.
-          </Text>
+          <Text>Удалить объект "{object.name}"? Все устройства, теги и мнемосхемы будут удалены.</Text>
           {formError && (
             <Text c="red" size="sm">
               {formError}
@@ -303,11 +270,7 @@ export default function ObjectDetailPage() {
           <Button variant="danger" onClick={() => void onDeleteConfirm()} loading={isSubmitting}>
             Удалить
           </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setIsDeleteOpened(false)}
-            disabled={isSubmitting}
-          >
+          <Button variant="secondary" onClick={() => setIsDeleteOpened(false)} disabled={isSubmitting}>
             Отмена
           </Button>
         </Stack>

@@ -11,5 +11,6 @@ interface NavbarBase {
 export type NavbarProps = RequireAtLeastOne<
   Partial<NavbarBase>,
   keyof NavbarBase
->;
-
+> & {
+  enabled?: boolean;
+};

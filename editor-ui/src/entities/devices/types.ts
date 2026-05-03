@@ -1,4 +1,4 @@
-export type DeviceTypeName =
+﻿export type DeviceTypeName =
   | "modbus_rtu"
   | "modbus_tcp"
   | "snmp_v1"
@@ -44,24 +44,23 @@ export interface SnmpV1V2cSettings {
   port: number;
   community: string;
   timeout_ms: number;
+  retry_count: number;
 }
 
 export interface SnmpV3Settings {
   host: string;
   port: number;
   security_name: string;
+  security_level: "noAuthNoPriv" | "authNoPriv" | "authPriv";
   auth_protocol: "MD5" | "SHA";
   auth_password: string;
   priv_protocol: "DES" | "AES";
   priv_password: string;
   timeout_ms: number;
+  retry_count: number;
 }
 
-export type DeviceSettings =
-  | ModbusTcpSettings
-  | ModbusRtuSettings
-  | SnmpV1V2cSettings
-  | SnmpV3Settings;
+export type DeviceSettings = ModbusTcpSettings | ModbusRtuSettings | SnmpV1V2cSettings | SnmpV3Settings;
 
 export interface DeviceWithParams extends Device {
   settings: DeviceSettings;
@@ -79,4 +78,3 @@ export interface UpdateDevicePayload {
   description?: string;
   settings?: DeviceSettings;
 }
-

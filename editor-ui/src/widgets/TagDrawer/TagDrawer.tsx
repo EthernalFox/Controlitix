@@ -24,21 +24,10 @@ import {
 import type { Unit } from "@entities/units";
 import { useUnitsStore } from "@entities/units";
 import { ApiRequestError } from "@shared/api";
-import {
-  Button,
-  Divider,
-  Drawer,
-  Group,
-  Select,
-  Skeleton,
-  Stack,
-  Switch,
-  Text,
-  TextInput,
-  Textarea
-} from "@shared/ui";
+import { Button, Divider, Drawer, Group, Select, Skeleton, Stack, Switch, Text, TextInput, Textarea } from "@shared/ui";
 
 import { TagAddressForm } from "./TagAddressForm";
+import styles from "./TagDrawer.module.css";
 import { TagScalingFields } from "./TagScalingFields";
 import { TagSetpointsFields } from "./TagSetpointsFields";
 
@@ -134,8 +123,7 @@ const collectFieldErrors = (error: unknown) => {
   }, {});
 };
 
-const isModbusAddress = (address: TagAddress): address is ModbusAddress =>
-  "registerType" in address;
+const isModbusAddress = (address: TagAddress): address is ModbusAddress => "registerType" in address;
 
 const isSnmpAddress = (address: TagAddress): address is SnmpAddress => "oid" in address;
 
@@ -168,8 +156,7 @@ const toSetpointsPayload = (values: TagFormState["setpoints"]): TagSetpoints => 
   hihi: values.hihi
 });
 
-const hasPayloadChanges = (left: unknown, right: unknown) =>
-  JSON.stringify(left) !== JSON.stringify(right);
+const hasPayloadChanges = (left: unknown, right: unknown) => JSON.stringify(left) !== JSON.stringify(right);
 
 const mapTagToFormState = (tag: Tag): TagFormState => {
   const nextState: TagFormState = {
@@ -235,10 +222,7 @@ const buildUnitOptions = (units: Unit[]) => {
 const toProtocol = (device: Device | undefined): DeviceProtocol | null =>
   (device?.typeName as DeviceProtocol | undefined) ?? null;
 
-const validateForm = (
-  formState: TagFormState,
-  protocol: DeviceProtocol | null
-): Record<string, string> => {
+const validateForm = (formState: TagFormState, protocol: DeviceProtocol | null): Record<string, string> => {
   const errors: Record<string, string> = {};
 
   if (!formState.name.trim()) {
@@ -262,11 +246,7 @@ const validateForm = (
       errors["address.register_type"] = "Выберите тип регистра";
     }
 
-    if (
-      formState.address.address === null ||
-      formState.address.address < 0 ||
-      formState.address.address > 65535
-    ) {
+    if (formState.address.address === null || formState.address.address < 0 || formState.address.address > 65535) {
       errors["address.address"] = "Адрес должен быть в диапазоне 0-65535";
     }
   }
@@ -291,52 +271,10 @@ const validateForm = (
     }
   }
 
-  if (formState.useScaling) {
-    const interpolationValues = [
-      formState.scaling.rawMin,
-      formState.scaling.rawMax,
-      formState.scaling.engMin,
-      formState.scaling.engMax
-    ];
-    const filledInterpolationCount = interpolationValues.filter(
-      (value) => value !== null
-    ).length;
-
-    if (filledInterpolationCount > 0 && filledInterpolationCount < 4) {
-      if (formState.scaling.rawMin === null) {
-        errors.raw_min = "Заполните raw_min";
-      }
-      if (formState.scaling.rawMax === null) {
-        errors.raw_max = "Заполните raw_max";
-      }
-      if (formState.scaling.engMin === null) {
-        errors.eng_min = "Заполните eng_min";
-      }
-      if (formState.scaling.engMax === null) {
-        errors.eng_max = "Заполните eng_max";
-      }
-    }
-
-    if (
-      formState.scaling.rawMin !== null &&
-      formState.scaling.rawMax !== null &&
-      formState.scaling.rawMin === formState.scaling.rawMax
-    ) {
-      errors.raw_max = "raw_max не должен быть равен raw_min";
-    }
-
-    if (formState.scaling.factor === 0) {
-      errors.factor = "factor не должен быть равен 0";
-    }
-  }
-
   return errors;
 };
 
-const buildParamsPayload = (
-  formState: TagFormState,
-  protocol: DeviceProtocol
-): UpdateTagParamsPayload => {
+const buildParamsPayload = (formState: TagFormState, protocol: DeviceProtocol): UpdateTagParamsPayload => {
   const dataTypeID = Number(formState.dataTypeId);
   const unitID = formState.unitId ? Number(formState.unitId) : null;
 
@@ -364,11 +302,7 @@ const buildParamsPayload = (
   };
 };
 
-const buildEditDiff = (
-  originalTag: Tag,
-  formState: TagFormState,
-  protocol: DeviceProtocol
-): TagEditDiff => {
+const buildEditDiff = (originalTag: Tag, formState: TagFormState, protocol: DeviceProtocol): TagEditDiff => {
   const diff: TagEditDiff = {};
 
   const nextName = formState.name.trim();
@@ -384,9 +318,7 @@ const buildEditDiff = (
 
   const nextParams = buildParamsPayload(formState, protocol);
   const originalAddress = originalTag.params?.address;
-  const originalAddressPayload = originalAddress
-    ? toAddressPayloadFromTagAddress(originalAddress)
-    : null;
+  const originalAddressPayload = originalAddress ? toAddressPayloadFromTagAddress(originalAddress) : null;
   const originalParamsPayload: UpdateTagParamsPayload | null = originalTag.params
     ? {
         data_type_id: originalTag.params.dataTypeId,
@@ -403,10 +335,7 @@ const buildEditDiff = (
   if (!formState.useSetpoints && originalTag.setpoints) {
     diff.setpoints = "delete";
   }
-  if (
-    formState.useSetpoints &&
-    (!originalTag.setpoints || hasPayloadChanges(nextSetpoints, originalTag.setpoints))
-  ) {
+  if (formState.useSetpoints && (!originalTag.setpoints || hasPayloadChanges(nextSetpoints, originalTag.setpoints))) {
     diff.setpoints = nextSetpoints;
   }
 
@@ -425,26 +354,16 @@ const buildEditDiff = (
   if (!formState.useScaling && originalTag.scaling) {
     diff.scaling = "delete";
   }
-  if (
-    formState.useScaling &&
-    (!originalScalingPayload || hasPayloadChanges(nextScaling, originalScalingPayload))
-  ) {
+  if (formState.useScaling && (!originalScalingPayload || hasPayloadChanges(nextScaling, originalScalingPayload))) {
     diff.scaling = nextScaling;
   }
 
   return diff;
 };
 
-const hasDiff = (diff: TagEditDiff) =>
-  Boolean(diff.meta || diff.params || diff.setpoints || diff.scaling);
+const hasDiff = (diff: TagEditDiff) => Boolean(diff.meta || diff.params || diff.setpoints || diff.scaling);
 
-export const TagDrawer = ({
-  mode,
-  objectId,
-  onClose,
-  opened,
-  tagId
-}: TagDrawerProps) => {
+export const TagDrawer = ({ mode, objectId, onClose, opened, tagId }: TagDrawerProps) => {
   const { items: dataTypes } = useDataTypesStore();
   const { devices } = useDevicesStore();
   const { items: units } = useUnitsStore();
@@ -457,15 +376,9 @@ export const TagDrawer = ({
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const objectDevices = useMemo(
-    () => devices.filter((device) => device.objectId === objectId),
-    [devices, objectId]
-  );
+  const objectDevices = useMemo(() => devices.filter((device) => device.objectId === objectId), [devices, objectId]);
 
-  const selectedDevice = useMemo(
-    () => objectDevices.find((device) => device.id === formState.deviceId),
-    [formState.deviceId, objectDevices]
-  );
+  const selectedDevice = useMemo(() => objectDevices.find((device) => device.id === formState.deviceId), [formState.deviceId, objectDevices]);
 
   const protocol = toProtocol(selectedDevice);
 
@@ -543,12 +456,8 @@ export const TagDrawer = ({
           name: formState.name.trim(),
           description: formState.description.trim() || undefined,
           params: paramsPayload,
-          setpoints: formState.useSetpoints
-            ? toSetpointsPayload(formState.setpoints)
-            : undefined,
-          scaling: formState.useScaling
-            ? toScalingPayload(formState.scaling)
-            : undefined
+          setpoints: formState.useSetpoints ? toSetpointsPayload(formState.setpoints) : undefined,
+          scaling: formState.useScaling ? toScalingPayload(formState.scaling) : undefined
         });
       }
 
@@ -570,10 +479,7 @@ export const TagDrawer = ({
     setIsSubmitting(false);
   };
 
-  const drawerTitle =
-    mode === "create"
-      ? "Новый тег"
-      : `Редактирование: ${initialTag?.name ?? ""}`;
+  const drawerTitle = mode === "create" ? "Новый тег" : `Редактирование: ${initialTag?.name ?? ""}`;
 
   const dataTypeOptions = dataTypes.map((dataType: DataType) => ({
     value: String(dataType.id),
@@ -587,13 +493,7 @@ export const TagDrawer = ({
   }));
 
   return (
-    <Drawer
-      opened={opened}
-      onClose={onClose}
-      title={drawerTitle}
-      position="right"
-      size={480}
-    >
+    <Drawer opened={opened} onClose={onClose} title={drawerTitle} position="right" size={380}>
       {isLoadingTag ? (
         <Stack>
           <Skeleton h={36} radius="sm" />
@@ -603,6 +503,14 @@ export const TagDrawer = ({
       ) : (
         <form onSubmit={onSubmit}>
           <Stack>
+            <Text className={styles.sectionTitle}>Основное</Text>
+            <TextInput
+              label="Имя тега"
+              value={formState.name}
+              onChange={(event) => setFormState((state) => ({ ...state, name: event.currentTarget.value }))}
+              error={fieldErrors.name}
+              required
+            />
             <Select
               label="Устройство"
               data={deviceOptions}
@@ -612,27 +520,6 @@ export const TagDrawer = ({
               disabled={mode === "edit"}
               required
             />
-
-            <TextInput
-              label="Название"
-              value={formState.name}
-              onChange={(event) =>
-                setFormState((state) => ({ ...state, name: event.currentTarget.value }))
-              }
-              error={fieldErrors.name}
-              required
-            />
-
-            <Textarea
-              label="Описание"
-              value={formState.description}
-              onChange={(event) =>
-                setFormState((state) => ({ ...state, description: event.currentTarget.value }))
-              }
-              error={fieldErrors.description}
-              minRows={3}
-            />
-
             <Select
               label="Тип данных"
               data={dataTypeOptions}
@@ -641,7 +528,6 @@ export const TagDrawer = ({
               error={fieldErrors.data_type_id}
               required
             />
-
             <Select
               label="Единица"
               data={unitOptions}
@@ -651,9 +537,17 @@ export const TagDrawer = ({
               onChange={(value) => setFormState((state) => ({ ...state, unitId: value }))}
               error={fieldErrors.unit_id}
             />
+            <Textarea
+              label="Описание"
+              value={formState.description}
+              onChange={(event) => setFormState((state) => ({ ...state, description: event.currentTarget.value }))}
+              error={fieldErrors.description}
+              minRows={2}
+            />
 
             <Divider />
 
+            <Text className={styles.sectionTitle}>Адрес</Text>
             <TagAddressForm
               protocol={protocol}
               address={formState.address}
@@ -671,12 +565,11 @@ export const TagDrawer = ({
 
             <Divider />
 
+            <Text className={styles.sectionTitle}>Scaling</Text>
             <Switch
               label="Использовать масштабирование"
               checked={formState.useScaling}
-              onChange={(checked) =>
-                setFormState((state) => ({ ...state, useScaling: checked }))
-              }
+              onChange={(checked) => setFormState((state) => ({ ...state, useScaling: checked }))}
             />
 
             {formState.useScaling && (
@@ -697,12 +590,11 @@ export const TagDrawer = ({
 
             <Divider />
 
+            <Text className={styles.sectionTitle}>Setpoints</Text>
             <Switch
               label="Использовать уставки"
               checked={formState.useSetpoints}
-              onChange={(checked) =>
-                setFormState((state) => ({ ...state, useSetpoints: checked }))
-              }
+              onChange={(checked) => setFormState((state) => ({ ...state, useSetpoints: checked }))}
             />
 
             {formState.useSetpoints && (
@@ -727,17 +619,12 @@ export const TagDrawer = ({
               </Text>
             )}
 
-            <Group grow>
+            <Group className={styles.footerActions}>
+              <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
+                Отмена
+              </Button>
               <Button type="submit" loading={isSubmitting}>
                 Сохранить
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={onClose}
-                disabled={isSubmitting}
-              >
-                Отмена
               </Button>
             </Group>
           </Stack>

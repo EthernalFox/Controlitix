@@ -1,1 +1,1 @@
-export const COLOR_SCHEME_STORAGE_KEY = "controlitix-color-scheme";
+﻿export const COLOR_SCHEME_STORAGE_KEY = "controlitix-theme";

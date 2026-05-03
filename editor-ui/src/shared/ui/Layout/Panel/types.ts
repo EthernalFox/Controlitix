@@ -8,4 +8,6 @@ interface PanelBase {
   bottom: ReactNode;
 }
 
-export type PanelProps = RequireAtLeastOne<Partial<PanelBase>, keyof PanelBase>;
+export type PanelProps = RequireAtLeastOne<Partial<PanelBase>, keyof PanelBase> & {
+  enabled?: boolean;
+};

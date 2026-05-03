@@ -1,0 +1,26 @@
+﻿.tabsList {
+  background: var(--ctrx-glass-bg-soft);
+  padding: 4px;
+  border: 1px solid var(--ctrx-glass-border-inner);
+  border-radius: 10px;
+  display: inline-flex;
+  gap: 4px;
+}
+
+.tab {
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mantine-color-dimmed);
+}
+
+.tab[data-active] {
+  background: var(--mantine-color-default);
+  color: var(--mantine-color-text);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--mantine-color-black) 6%, transparent);
+}
+
+[data-mantine-color-scheme="dark"] .tab[data-active] {
+  background: color-mix(in srgb, var(--mantine-color-deepBlue-6) 18%, transparent);
+}

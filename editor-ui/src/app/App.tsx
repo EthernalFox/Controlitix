@@ -1,12 +1,15 @@
-import "@mantine/core/styles.css";
+﻿import "@mantine/core/styles.css";
 
+import { AuthProvider } from "./providers/AuthProvider";
 import { RouteProvider } from "./providers/RouterProvider/RouteProvider";
 import { ThemeProvider } from "./providers/ThemeProvider";
 
 function App() {
   return (
     <ThemeProvider>
-      <RouteProvider />
+      <AuthProvider>
+        <RouteProvider />
+      </AuthProvider>
     </ThemeProvider>
   );
 }

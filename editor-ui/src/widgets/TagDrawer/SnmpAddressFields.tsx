@@ -11,6 +11,7 @@ export const SnmpAddressFields = ({ errors, oid, onChange }: SnmpAddressFieldsPr
     <TextInput
       label="OID"
       placeholder="1.3.6.1.2.1.1.1.0"
+      mono
       value={oid}
       onChange={(event) => onChange(event.currentTarget.value)}
       error={errors?.["address.oid"]}

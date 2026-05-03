@@ -9,7 +9,6 @@
 } from "@tabler/icons-react";
 import { useState } from "react";
 
-
 import { useFiguresStore } from "@entities/figures";
 import { useEditorStore } from "@features/editor";
 import { ActionIcon, Group, ScrollArea, Stack, Text } from "@shared/ui";
@@ -46,7 +45,7 @@ const reorderArray = (items: string[], sourceId: string, targetId: string) => {
 export const LayerList = () => {
   const [draggingFigureId, setDraggingFigureId] = useState<string | null>(null);
   const { figures, patchFigureLocal, reorderFigures, updateFigure } = useFiguresStore();
-  const { selectFigure, selectedFigureIds, setSaveStatus } = useEditorStore();
+  const { selectFigure, selection, setSaveStatus } = useEditorStore();
 
   const displayFigures = [...figures].reverse();
 
@@ -72,7 +71,7 @@ export const LayerList = () => {
         <Stack gap={4} pr="xs">
           {displayFigures.map((figure, index) => {
             const Icon = ICON_BY_TYPE[figure.type] ?? IconSquare;
-            const isSelected = selectedFigureIds.includes(figure.id);
+            const isSelected = selection.ids.includes(figure.id);
             const isVisible = figure.params.visible !== false;
 
             return (
@@ -90,11 +89,7 @@ export const LayerList = () => {
                   }
 
                   const displayOrder = displayFigures.map((item) => item.id);
-                  const nextDisplayOrder = reorderArray(
-                    displayOrder,
-                    draggingFigureId,
-                    figure.id
-                  );
+                  const nextDisplayOrder = reorderArray(displayOrder, draggingFigureId, figure.id);
                   reorderFigures([...nextDisplayOrder].reverse());
                   setDraggingFigureId(null);
                 }}
@@ -105,7 +100,7 @@ export const LayerList = () => {
                   background: isSelected ? "rgba(34, 139, 230, 0.12)" : "transparent",
                   opacity: isVisible ? 1 : 0.55
                 }}
-                onClick={() => selectFigure(figure.id)}
+                onClick={(event) => selectFigure(figure.id, event.shiftKey)}
               >
                 <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
                   <Icon size={14} />

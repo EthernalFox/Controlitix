@@ -1,4 +1,6 @@
-import type { TextInputProps as MantineTextInputProps } from "@mantine/core";
+﻿import type { TextInputProps as MantineTextInputProps } from "@mantine/core";
 
-export type TextInputProps = MantineTextInputProps;
+export type TextInputProps = MantineTextInputProps & {
+  mono?: boolean;
+};
 

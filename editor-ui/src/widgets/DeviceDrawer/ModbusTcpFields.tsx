@@ -1,4 +1,4 @@
-import type { ModbusTcpSettings } from "@entities/devices";
+﻿import type { ModbusTcpSettings } from "@entities/devices";
 import { NumberInput, Stack, TextInput } from "@shared/ui";
 
 interface ModbusTcpFieldsProps {
@@ -22,11 +22,7 @@ const toNumber = (value: string | number, fallback: number) => {
   return fallback;
 };
 
-export const ModbusTcpFields = ({
-  settings,
-  onChange,
-  errors
-}: ModbusTcpFieldsProps) => {
+export const ModbusTcpFields = ({ settings, onChange, errors }: ModbusTcpFieldsProps) => {
   return (
     <Stack gap="sm">
       <TextInput
@@ -54,6 +50,7 @@ export const ModbusTcpFields = ({
         error={errors?.port}
         min={1}
         max={65535}
+        mono
         required
       />
       <NumberInput
@@ -68,6 +65,7 @@ export const ModbusTcpFields = ({
         error={errors?.slave_id}
         min={1}
         max={247}
+        mono
         required
       />
       <NumberInput
@@ -80,10 +78,11 @@ export const ModbusTcpFields = ({
           })
         }
         error={errors?.timeout_ms}
-        min={1}
+        min={100}
+        max={30000}
+        mono
         required
       />
     </Stack>
   );
 };
-

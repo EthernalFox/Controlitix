@@ -1,0 +1,50 @@
+.label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mantine-color-dimmed);
+}
+
+.input {
+  min-height: 30px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--ctrx-glass-border-inner);
+  background: var(--ctrx-glass-bg-strong);
+  color: var(--mantine-color-text);
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+
+.input::placeholder {
+  color: var(--mantine-color-placeholder);
+}
+
+.input:focus,
+.input:focus-within {
+  border-color: var(--mantine-color-deepBlue-6);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mantine-color-deepBlue-6) 18%, transparent);
+}
+
+.input[data-invalid] {
+  border-color: var(--ctrx-alarm-crit);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ctrx-alarm-crit) 18%, transparent);
+}
+
+.description {
+  font-size: 11px;
+  color: var(--mantine-color-placeholder);
+}
+
+.error {
+  font-size: 11px;
+  color: var(--ctrx-alarm-crit);
+}
+
+.section {
+  color: var(--mantine-color-placeholder);
+}
+
+.monoInput {
+  font-family: var(--mantine-font-family-monospace);
+}
+

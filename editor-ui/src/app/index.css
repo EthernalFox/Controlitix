@@ -1,5 +1,14 @@
+﻿html,
+body {
+  height: 100%;
+  color: var(--mantine-color-text);
+  background: var(--mantine-color-body);
+}
+
 body {
   margin: 0;
+  font-family: var(--mantine-font-family);
+  -webkit-font-smoothing: antialiased;
 }
 
 *,

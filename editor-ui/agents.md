@@ -26,6 +26,62 @@
 - Резолвер импортов понимает алиасы @app, @entities, @features, @shared, @pages, @widgets и расширения .js, .jsx, .ts, .tsx.
 - Prettier: printWidth 80, tabWidth 2, useTabs false, singleQuote false, quoteProps consistent, semi true, trailingComma none, bracketSpacing true, arrowParens always, endOfLine lf, jsxSingleQuote false, jsxBracketSameLine false.
 
+## Токен-система и тема
+
+### Архитектура (после спек 0047–0050)
+
+Дизайн-токены определяются **один раз** в `cssVariablesResolver` внутри `editor-ui/src/shared/libs/theme/theme.ts` и автоматически инжектируются Mantine в DOM при смене цветовой схемы.
+
+```
+theme.ts
+  └── cssVariablesResolver → Mantine инжектирует в :root и [data-mantine-color-scheme="light/dark"]
+        ├── variables {}   → theme-agnostic токены (alarm-цвета, размеры лейаута)
+        ├── light {}       → светлая тема (bg, text, border, glass, accent)
+        └── dark {}        → тёмная тема
+```
+
+### Пространства имён
+
+| Namespace | Использование |
+|---|---|
+| `var(--mantine-*)` | Стандартные Mantine-свойства: spacing, radius, shadow, font-family, color shades |
+| `var(--ctrx-*)` | Семантические токены проекта: alarm, glass, canvas, surface, accent |
+
+**Запрещено:**
+- Хардкодить hex-цвета и `rgba()` в `.module.css` файлах.
+- Использовать `var(--bg-*)`, `var(--text-*)`, `var(--border-*)` (старый неймспейс, удалён в spec 0047).
+- Импортировать из `@mantine/core` напрямую в виджеты, фичи и страницы — только через `@shared/ui`.
+
+### ThemeProvider
+
+Единственный `MantineProvider` в `app/providers/ThemeProvider/ThemeProvider.tsx`:
+- `theme` — из `shared/libs/theme`
+- `cssVariablesResolver` — из `shared/libs/theme`
+- `colorSchemeManager = localStorageColorSchemeManager({ key: "controlitix-theme" })`
+- `defaultColorScheme="light"`
+
+### Как добавить новый токен
+
+1. Добавить переменную в нужный блок (`variables`/`light`/`dark`) в `cssVariablesResolver` в `theme.ts`.
+2. Именовать в формате `--ctrx-<категория>-<имя>`.
+3. Задокументировать в `docs/06_Дизайн/Tokens.md`.
+
+### Паттерн использования в CSS-модулях
+
+```css
+/* spacing и радиус — Mantine vars */
+.panel { padding: var(--mantine-spacing-md); border-radius: var(--mantine-radius-sm); }
+
+/* семантика проекта — ctrx vars */
+.alarmOk  { color: var(--ctrx-alarm-ok); }
+.glass    { background: var(--ctrx-glass-bg); backdrop-filter: var(--ctrx-glass-blur); }
+.focused  { outline: 2px solid var(--ctrx-border-focus); }
+```
+
+### Полный справочник токенов
+
+См. `docs/06_Дизайн/Tokens.md`.
+
 ## Правила работы
 
 - Коммиты: 1 логическое изменение = 1 коммит (используем частичное добавление `git add -p`, избегаем смешивания рефакторинга/фич/форматирования в одном коммите).

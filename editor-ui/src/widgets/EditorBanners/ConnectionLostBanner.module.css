@@ -1,0 +1,11 @@
+.connectionLostBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--ctrx-alarm-warn);
+  background: color-mix(in srgb, var(--ctrx-alarm-warn) 10%, transparent);
+  color: var(--mantine-color-text);
+  font-size: 12px;
+  line-height: 1.3;
+}

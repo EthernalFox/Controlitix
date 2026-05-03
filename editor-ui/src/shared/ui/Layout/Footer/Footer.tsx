@@ -16,7 +16,7 @@ export const Footer = ({ before, main, after }: FooterProps) => {
         display: "flex",
         alignItems: "center",
         gap: 12,
-        paddingInline: 12
+        paddingInline: "var(--mantine-spacing-sm)"
       }}
     >
       {before && <div style={{ ...slotStyle, flex: "0 0 auto" }}>{before}</div>}
@@ -25,4 +25,3 @@ export const Footer = ({ before, main, after }: FooterProps) => {
     </div>
   );
 };
-

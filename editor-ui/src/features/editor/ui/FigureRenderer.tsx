@@ -8,7 +8,11 @@ import { ShapeRenderer } from "./ShapeRenderer";
 interface FigureRendererProps {
   figure: Figure;
   isSelected: boolean;
-  onSelect: (id: string) => void;
+  isDragging: boolean;
+  onSelect: (id: string, additive: boolean) => void;
+  onContextMenu: (id: string, event: KonvaEventObject<PointerEvent>) => void;
+  onDragStart: (id: string, event: KonvaEventObject<DragEvent>) => void;
+  onDragMove: (id: string, event: KonvaEventObject<DragEvent>) => void;
   onDragEnd: (id: string, x: number, y: number) => void;
   onTransformEnd: (id: string, params: Record<string, unknown>) => void;
 }
@@ -36,7 +40,6 @@ const buildTransformedParams = (
   const nodeWithSize = node as unknown as {
     width: () => number;
     height: () => number;
-    points?: () => number[];
   };
 
   const scaleX = node.scaleX();
@@ -98,7 +101,11 @@ const buildTransformedParams = (
 export const FigureRenderer = ({
   figure,
   isSelected,
+  isDragging,
   onSelect,
+  onContextMenu,
+  onDragStart,
+  onDragMove,
   onDragEnd,
   onTransformEnd
 }: FigureRendererProps) => {
@@ -113,8 +120,13 @@ export const FigureRenderer = ({
       visible={visible}
       draggable
       listening
-      onClick={() => onSelect(figure.id)}
-      onTap={() => onSelect(figure.id)}
+      onClick={(event: KonvaEventObject<MouseEvent>) =>
+        onSelect(figure.id, Boolean(event.evt.shiftKey))
+      }
+      onTap={() => onSelect(figure.id, false)}
+      onContextMenu={(event: KonvaEventObject<PointerEvent>) => onContextMenu(figure.id, event)}
+      onDragStart={(event: KonvaEventObject<DragEvent>) => onDragStart(figure.id, event)}
+      onDragMove={(event: KonvaEventObject<DragEvent>) => onDragMove(figure.id, event)}
       onDragEnd={(event: KonvaEventObject<DragEvent>) =>
         onDragEnd(figure.id, event.target.x(), event.target.y())
       }
@@ -128,8 +140,10 @@ export const FigureRenderer = ({
         onTransformEnd(figure.id, nextParams);
       }}
       shadowColor={isSelected ? "rgba(34, 139, 230, 0.45)" : undefined}
-      shadowBlur={isSelected ? 8 : 0}
-      shadowOpacity={isSelected ? 0.6 : 0}
+      shadowBlur={isSelected ? (isDragging ? 18 : 8) : 0}
+      shadowOpacity={isSelected ? (isDragging ? 0.8 : 0.6) : 0}
+      shadowOffsetX={isDragging ? 1 : 0}
+      shadowOffsetY={isDragging ? 2 : 0}
     />
   );
 };

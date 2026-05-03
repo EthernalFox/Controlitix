@@ -1,0 +1,18 @@
+.toolbarTitle {
+  color: var(--mantine-color-text);
+}
+
+.toolChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 4px;
+  background: var(--ctrx-glass-bg-soft);
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 10px;
+  color: var(--mantine-color-placeholder);
+}

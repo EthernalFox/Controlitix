@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { RequireAtLeastOne } from "@shared/libs/types/RequireAtLeastOne";
+import type { LayoutMode } from "@shared/ui/Layout/types";
 
 export type Breakpoint = "base" | "xs" | "sm" | "md" | "lg" | "xl";
 
@@ -27,12 +28,21 @@ export type LayoutSizes = {
 
 export type LayoutProps = RequireAtLeastOne<Partial<LayoutSlots>, keyof LayoutSlots> & {
   children: ReactNode;
+  mode?: LayoutMode;
 
   sizes?: Partial<LayoutSizes>;
 
   defaultNavbarCollapsed?: boolean;
+  defaultPanelCollapsed?: boolean;
+  defaultAsideCollapsed?: boolean;
+
   navbarCollapsed?: boolean;
+  panelCollapsed?: boolean;
+  asideCollapsed?: boolean;
+
   onNavbarCollapsedChange?: (collapsed: boolean) => void;
+  onPanelCollapsedChange?: (collapsed: boolean) => void;
+  onAsideCollapsedChange?: (collapsed: boolean) => void;
 
   panelHidden?: boolean;
   asideHidden?: boolean;

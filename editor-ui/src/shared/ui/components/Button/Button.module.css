@@ -1,0 +1,72 @@
+﻿.root {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  backdrop-filter: var(--ctrx-glass-blur);
+  -webkit-backdrop-filter: var(--ctrx-glass-blur);
+}
+
+.root[data-size="sm"] {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.root[data-disabled] {
+  opacity: 0.4;
+}
+
+.root:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mantine-color-deepBlue-6) 18%, transparent);
+}
+
+.btnPrimary {
+  background: var(--mantine-color-deepBlue-6);
+  color: var(--mantine-color-white);
+  border-color: var(--mantine-color-deepBlue-5);
+  box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--mantine-color-deepBlue-6) 45%, transparent);
+}
+
+.btnPrimary:hover {
+  background: var(--mantine-color-deepBlue-7);
+  transform: translateY(-1px);
+}
+
+.btnSecondary {
+  background: var(--ctrx-glass-bg);
+  color: var(--mantine-color-deepBlue-6);
+  border-color: color-mix(in srgb, var(--mantine-color-deepBlue-6) 28%, transparent);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--mantine-color-black) 8%, transparent);
+}
+
+.btnSecondary:hover {
+  background: var(--ctrx-glass-bg-strong);
+}
+
+.btnDanger {
+  background: var(--mantine-color-error);
+  color: var(--mantine-color-white);
+  border-color: color-mix(in srgb, var(--mantine-color-error) 70%, var(--mantine-color-white));
+  box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--mantine-color-error) 40%, transparent);
+}
+
+.btnDanger:hover {
+  background: var(--mantine-color-red-7);
+  transform: translateY(-1px);
+}
+
+.btnGhost {
+  background: var(--ctrx-glass-bg-soft);
+  color: var(--mantine-color-deepBlue-6);
+  border-color: var(--ctrx-glass-border-inner);
+  backdrop-filter: var(--ctrx-glass-blur);
+  -webkit-backdrop-filter: var(--ctrx-glass-blur);
+  box-shadow: none;
+}
+
+.btnGhost:hover {
+  background: var(--ctrx-glass-bg);
+}

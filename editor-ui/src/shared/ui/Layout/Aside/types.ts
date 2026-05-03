@@ -8,5 +8,6 @@ interface AsideBase {
   bottom: ReactNode;
 }
 
-export type AsideProps = RequireAtLeastOne<Partial<AsideBase>, keyof AsideBase>;
-
+export type AsideProps = RequireAtLeastOne<Partial<AsideBase>, keyof AsideBase> & {
+  enabled?: boolean;
+};

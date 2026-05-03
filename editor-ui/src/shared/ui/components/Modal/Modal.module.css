@@ -1,0 +1,56 @@
+﻿.content {
+  background: var(--ctrx-glass-bg-strong);
+  border: 1px solid var(--ctrx-glass-border);
+  border-radius: var(--mantine-radius-md);
+  box-shadow: var(--ctrx-glass-shadow);
+  backdrop-filter: var(--ctrx-glass-blur);
+  -webkit-backdrop-filter: var(--ctrx-glass-blur);
+}
+
+.body {
+  padding: 18px;
+}
+
+.header {
+  padding: 18px 18px 0;
+  background: transparent;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--mantine-color-text);
+}
+
+.overlay {
+  background: color-mix(in srgb, var(--mantine-color-black) 6%, transparent);
+  backdrop-filter: var(--ctrx-glass-blur);
+  -webkit-backdrop-filter: var(--ctrx-glass-blur);
+}
+
+.dropdown {
+  background: var(--ctrx-glass-bg-strong);
+  border: 1px solid var(--ctrx-glass-border);
+  border-radius: var(--mantine-radius-md);
+  box-shadow: var(--ctrx-glass-shadow);
+  backdrop-filter: var(--ctrx-glass-blur);
+  -webkit-backdrop-filter: var(--ctrx-glass-blur);
+}
+
+.item {
+  padding: 7px 10px;
+  border-radius: 8px;
+  color: var(--mantine-color-dimmed);
+}
+
+.item[data-hovered],
+.item:hover {
+  background: var(--ctrx-glass-bg-soft);
+  color: var(--mantine-color-text);
+}
+
+.label {
+  color: var(--mantine-color-placeholder);
+  font-size: 11px;
+  font-weight: 600;
+}

@@ -1,27 +1,16 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 
-import {
-  DEVICE_TYPE_LABELS,
-  useDevicesStore,
-  type Device
-} from "@entities/devices";
+import { DEVICE_TYPE_LABELS, useDevicesStore, type Device } from "@entities/devices";
 import { ApiRequestError } from "@shared/api";
-import {
-  ActionIcon,
-  Button,
-  Card,
-  Group,
-  Modal,
-  Select,
-  Skeleton,
-  Stack,
-  Table,
-  Text,
-  TextInput,
-  Tooltip
-} from "@shared/ui";
+import { ActionIcon, Button, Card, Group, Modal, Select, Stack, Table, Text, TextInput, Tooltip } from "@shared/ui";
 import { DeviceDrawer } from "@widgets/DeviceDrawer";
+import { EmptyState } from "@widgets/EmptyState";
+import { ListSkeleton } from "@widgets/ListSkeleton";
+import { PageToolbar } from "@widgets/PageToolbar";
+
+import styles from "./DevicesPage.module.css";
 
 const toErrorMessage = (error: unknown) => {
   if (error instanceof ApiRequestError) {
@@ -38,18 +27,16 @@ const toErrorMessage = (error: unknown) => {
 const getTypeLabel = (typeName: string) =>
   DEVICE_TYPE_LABELS[typeName as keyof typeof DEVICE_TYPE_LABELS] ?? typeName;
 
+const formatDate = (value: string) =>
+  new Intl.DateTimeFormat("ru-RU", {
+    dateStyle: "short",
+    timeStyle: "short"
+  }).format(new Date(value));
+
 export default function DevicesPage() {
   const { objectId } = useParams<{ objectId: string }>();
-  const {
-    deleteDevice,
-    deviceTypes,
-    devices,
-    error,
-    fetchDevices,
-    fetchDeviceTypes,
-    isLoading,
-    reset
-  } = useDevicesStore();
+  const { deleteDevice, deviceTypes, devices, error, fetchDevices, fetchDeviceTypes, isLoading, reset } =
+    useDevicesStore();
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
@@ -136,32 +123,31 @@ export default function DevicesPage() {
   return (
     <>
       <Stack gap="md">
-        <Group justify="space-between" align="center">
-          <Text size="xl" fw={600}>
-            Устройства
-          </Text>
-          <Button onClick={() => setDrawerMode("create")}>Добавить устройство</Button>
-        </Group>
-
-        <Group gap="sm" align="end">
-          <TextInput
-            placeholder="Поиск по имени..."
-            value={search}
-            onChange={(event) => setSearch(event.currentTarget.value)}
-            style={{ flexGrow: 1 }}
-          />
-          <Select
-            placeholder="Тип"
-            value={typeFilter}
-            onChange={setTypeFilter}
-            clearable
-            data={deviceTypes.map((deviceType) => ({
-              value: deviceType.name,
-              label: getTypeLabel(deviceType.name)
-            }))}
-            w={220}
-          />
-        </Group>
+        <PageToolbar
+          title="Устройства"
+          search={
+            <TextInput placeholder="Поиск..." value={search} onChange={(event) => setSearch(event.currentTarget.value)} />
+          }
+          tabs={
+            <Select
+              placeholder="Все типы"
+              value={typeFilter}
+              onChange={setTypeFilter}
+              clearable
+              data={deviceTypes.map((deviceType) => ({
+                value: deviceType.name,
+                label: getTypeLabel(deviceType.name)
+              }))}
+              w={220}
+            />
+          }
+          primaryAction={
+            <Button onClick={() => setDrawerMode("create")}>
+              <IconPlus size={14} />
+              Добавить устройство
+            </Button>
+          }
+        />
 
         {error && !isLoading && (
           <Card withBorder p="md">
@@ -174,72 +160,72 @@ export default function DevicesPage() {
           </Card>
         )}
 
-        {isLoading && (
-          <Stack gap="xs">
-            <Skeleton h={36} radius="sm" />
-            <Skeleton h={36} radius="sm" />
-            <Skeleton h={36} radius="sm" />
-            <Skeleton h={36} radius="sm" />
-            <Skeleton h={36} radius="sm" />
-          </Stack>
-        )}
+        {isLoading && <ListSkeleton cols={3} />}
 
         {!isLoading && !error && devices.length === 0 && (
-          <Card withBorder p="md">
-            <Stack gap="xs" align="center">
-              <Text size="xl">[]</Text>
-              <Text ta="center">У этого объекта нет устройств</Text>
-              <Button onClick={() => setDrawerMode("create")}>
-                Добавить первое устройство
-              </Button>
-            </Stack>
+          <Card variant="flat" withBorder p="lg">
+            <EmptyState
+              icon={<Text size="xl">⚙</Text>}
+              title="Нет устройств"
+              description="Добавьте первое устройство — Modbus или SNMP"
+              action={
+                <Button onClick={() => setDrawerMode("create")}>
+                  <IconPlus size={14} />
+                  Добавить устройство
+                </Button>
+              }
+            />
           </Card>
         )}
 
         {!isLoading && !error && devices.length > 0 && filteredDevices.length === 0 && (
-          <Card withBorder p="md">
+          <Card variant="flat" withBorder p="md">
             <Text>По заданным фильтрам устройства не найдены.</Text>
           </Card>
         )}
 
         {!isLoading && filteredDevices.length > 0 && (
-          <Table
-            withTableBorder
-            striped
-            highlightOnHover
-            data={{
-              head: ["Название", "Тип", "Описание", ""],
-              body: filteredDevices.map((device) => [
-                device.name,
-                getTypeLabel(device.typeName),
-                device.description || "—",
-                <Group key={device.id} gap="xs" justify="center">
-                  <Tooltip label="Редактировать">
-                    <ActionIcon
-                      aria-label="Edit device"
-                      variant="light"
-                      onClick={() => {
-                        setEditDeviceId(device.id);
-                        setDrawerMode("edit");
-                      }}
-                    >
-                      E
-                    </ActionIcon>
-                  </Tooltip>
-                  <Tooltip label="Удалить">
-                    <ActionIcon
-                      aria-label="Delete device"
-                      variant="light"
-                      color="red"
-                      onClick={() => setDeviceToDelete(device)}
-                    >
-                      D
-                    </ActionIcon>
-                  </Tooltip>
-                </Group>
-              ])
-            }}
-          />
+          <Card variant="glass" p={0} className={styles.tableCard}>
+            <Table
+              className={styles.table}
+              data={{
+                head: ["Статус", "Имя", "Тип", "Адрес", "Последний опрос", ""],
+                body: filteredDevices.map((device) => [
+                  <span key={`${device.id}-dot`} className={styles.statusDot} />,
+                  device.name,
+                  getTypeLabel(device.typeName),
+                  <span key={`${device.id}-addr`} className={styles.mono}>
+                    —
+                  </span>,
+                  formatDate(device.updatedAt),
+                  <Group key={`${device.id}-actions`} gap="xs" justify="center">
+                    <Tooltip label="Редактировать">
+                      <ActionIcon
+                        aria-label="Edit device"
+                        variant="light"
+                        onClick={() => {
+                          setEditDeviceId(device.id);
+                          setDrawerMode("edit");
+                        }}
+                      >
+                        <IconPencil size={14} />
+                      </ActionIcon>
+                    </Tooltip>
+                    <Tooltip label="Удалить">
+                      <ActionIcon
+                        aria-label="Delete device"
+                        variant="light"
+                        color="red"
+                        onClick={() => setDeviceToDelete(device)}
+                      >
+                        <IconTrash size={14} />
+                      </ActionIcon>
+                    </Tooltip>
+                  </Group>
+                ])
+              }}
+            />
+          </Card>
         )}
       </Stack>
 
@@ -259,28 +245,18 @@ export default function DevicesPage() {
         <Stack>
           <Text>
             Все теги этого устройства
-            {typeof deviceToDelete?.tagsCount === "number"
-              ? ` (${deviceToDelete.tagsCount} шт.)`
-              : ""}{" "}
-            будут удалены.
+            {typeof deviceToDelete?.tagsCount === "number" ? ` (${deviceToDelete.tagsCount} шт.)` : ""} будут
+            удалены.
           </Text>
           {deleteError && (
             <Text c="red" size="sm">
               {deleteError}
             </Text>
           )}
-          <Button
-            variant="danger"
-            onClick={() => void onDeleteConfirm()}
-            loading={isDeleteSubmitting}
-          >
+          <Button variant="danger" onClick={() => void onDeleteConfirm()} loading={isDeleteSubmitting}>
             Удалить
           </Button>
-          <Button
-            variant="secondary"
-            onClick={closeDeleteModal}
-            disabled={isDeleteSubmitting}
-          >
+          <Button variant="secondary" onClick={closeDeleteModal} disabled={isDeleteSubmitting}>
             Отмена
           </Button>
         </Stack>

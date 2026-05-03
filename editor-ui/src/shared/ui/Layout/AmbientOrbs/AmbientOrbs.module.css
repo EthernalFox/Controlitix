@@ -1,0 +1,41 @@
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.orb {
+  position: absolute;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  background: var(--orb, var(--ctrx-orb-1));
+  filter: var(--ctrx-orb-blur);
+  opacity: 0.45;
+}
+
+[data-mantine-color-scheme="dark"] .orb {
+  opacity: 0.35;
+}
+
+.animated {
+  animation: breathe 60s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animated {
+    animation: none;
+  }
+}

@@ -1,4 +1,6 @@
-import type { TextareaProps as MantineTextareaProps } from "@mantine/core";
+﻿import type { TextareaProps as MantineTextareaProps } from "@mantine/core";
 
-export type TextareaProps = MantineTextareaProps;
+export type TextareaProps = MantineTextareaProps & {
+  mono?: boolean;
+};
 

@@ -27,6 +27,8 @@ interface TagOption {
   deviceId: string;
 }
 
+type PropertiesTab = "properties" | "binding";
+
 const readNumber = (value: unknown, fallback: number) => {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
@@ -50,6 +52,7 @@ const supportsSize = (type: string) => type === "rect" || type === "ellipse" || 
 export const PropertiesPanel = ({ diagramId }: PropertiesPanelProps) => {
   void diagramId;
 
+  const [activeTab, setActiveTab] = useState<PropertiesTab>("properties");
   const [searchQuery, setSearchQuery] = useState("");
   const [tags, setTags] = useState<TagOption[]>([]);
   const [isTagLoading, setIsTagLoading] = useState(false);
@@ -57,17 +60,15 @@ export const PropertiesPanel = ({ diagramId }: PropertiesPanelProps) => {
   const debounceRef = useRef<number | null>(null);
   const tagSearchRef = useRef<number | null>(null);
 
-  const {
-    figures,
-    patchFigureLocal,
-    updateFigure
-  } = useFiguresStore();
-  const { selectedFigureIds, setSaveStatus } = useEditorStore();
+  const { figures, patchFigureLocal, updateFigure } = useFiguresStore();
+  const { selection, setSaveStatus } = useEditorStore();
 
   const selectedFigure = useMemo(
-    () => figures.find((figure) => figure.id === selectedFigureIds[0]) ?? null,
-    [figures, selectedFigureIds]
+    () => figures.find((figure) => figure.id === selection.ids[0]) ?? null,
+    [figures, selection.ids]
   );
+
+  const selectedCount = selection.ids.length;
 
   const upsertFigureDebounced = useCallback(
     (figureId: string, params: Record<string, unknown>) => {
@@ -116,6 +117,17 @@ export const PropertiesPanel = ({ diagramId }: PropertiesPanelProps) => {
   };
 
   useEffect(() => {
+    const onBindingRequested = () => {
+      setActiveTab("binding");
+    };
+
+    window.addEventListener("editor:open-binding", onBindingRequested as EventListener);
+    return () => {
+      window.removeEventListener("editor:open-binding", onBindingRequested as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (debounceRef.current !== null) {
         window.clearTimeout(debounceRef.current);
@@ -148,10 +160,21 @@ export const PropertiesPanel = ({ diagramId }: PropertiesPanelProps) => {
     }, 300);
   }, [searchQuery]);
 
-  if (!selectedFigure) {
+  if (selectedCount === 0 || !selectedFigure) {
     return (
       <Stack p="md">
         <Text c="dimmed">Выберите фигуру для редактирования</Text>
+      </Stack>
+    );
+  }
+
+  if (selectedCount >= 2) {
+    return (
+      <Stack p="md">
+        <Text fw={600}>Выбрано фигур: {selectedCount}</Text>
+        <Text size="sm" c="dimmed">
+          Для мультивыделения доступны только общие операции (перемещение, удаление, порядок слоев).
+        </Text>
       </Stack>
     );
   }
@@ -167,7 +190,7 @@ export const PropertiesPanel = ({ diagramId }: PropertiesPanelProps) => {
   }
 
   return (
-    <Tabs defaultValue="properties">
+    <Tabs value={activeTab} onChange={(value) => setActiveTab((value as PropertiesTab) ?? "properties")}> 
       <Tabs.List>
         <Tabs.Tab value="properties">Свойства</Tabs.Tab>
         <Tabs.Tab value="binding">Привязка данных</Tabs.Tab>
@@ -180,11 +203,13 @@ export const PropertiesPanel = ({ diagramId }: PropertiesPanelProps) => {
               label="X"
               value={readNumber(params.x, 0)}
               onChange={(value) => updateFigureParams({ x: readNumber(value, 0) })}
+              mono
             />
             <NumberInput
               label="Y"
               value={readNumber(params.y, 0)}
               onChange={(value) => updateFigureParams({ y: readNumber(value, 0) })}
+              mono
             />
 
             {supportsSize(selectedFigure.type) && (
@@ -193,11 +218,13 @@ export const PropertiesPanel = ({ diagramId }: PropertiesPanelProps) => {
                   label="W"
                   value={readNumber(params.width, 120)}
                   onChange={(value) => updateFigureParams({ width: readNumber(value, 120) })}
+                  mono
                 />
                 <NumberInput
                   label="H"
                   value={readNumber(params.height, 80)}
                   onChange={(value) => updateFigureParams({ height: readNumber(value, 80) })}
+                  mono
                 />
               </>
             )}
@@ -207,6 +234,7 @@ export const PropertiesPanel = ({ diagramId }: PropertiesPanelProps) => {
                 label="Radius"
                 value={readNumber(params.radius, 50)}
                 onChange={(value) => updateFigureParams({ radius: readNumber(value, 50) })}
+                mono
               />
             )}
 
@@ -214,6 +242,7 @@ export const PropertiesPanel = ({ diagramId }: PropertiesPanelProps) => {
               label="Rotation"
               value={readNumber(params.rotation, 0)}
               onChange={(value) => updateFigureParams({ rotation: readNumber(value, 0) })}
+              mono
             />
 
             <ColorInput
@@ -232,6 +261,7 @@ export const PropertiesPanel = ({ diagramId }: PropertiesPanelProps) => {
               label="Stroke width"
               value={readNumber(params.strokeWidth, 1)}
               onChange={(value) => updateFigureParams({ strokeWidth: readNumber(value, 1) })}
+              mono
             />
 
             <Text size="sm" c="dimmed">
@@ -254,9 +284,8 @@ export const PropertiesPanel = ({ diagramId }: PropertiesPanelProps) => {
                 <NumberInput
                   label="Font size"
                   value={readNumber(params.fontSize, 16)}
-                  onChange={(value) =>
-                    updateFigureParams({ fontSize: readNumber(value, 16) })
-                  }
+                  onChange={(value) => updateFigureParams({ fontSize: readNumber(value, 16) })}
+                  mono
                 />
               </>
             )}

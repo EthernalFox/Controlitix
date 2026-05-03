@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   DeviceSettings,
   DeviceTypeName,
   ModbusRtuSettings,
@@ -36,18 +36,21 @@ export const DEFAULT_SNMP_V1_V2C_SETTINGS: SnmpV1V2cSettings = {
   host: "",
   port: 161,
   community: "public",
-  timeout_ms: 5000
+  timeout_ms: 5000,
+  retry_count: 1
 };
 
 export const DEFAULT_SNMP_V3_SETTINGS: SnmpV3Settings = {
   host: "",
   port: 161,
   security_name: "",
+  security_level: "authPriv",
   auth_protocol: "SHA",
   auth_password: "",
   priv_protocol: "AES",
   priv_password: "",
-  timeout_ms: 5000
+  timeout_ms: 5000,
+  retry_count: 1
 };
 
 export const DEFAULT_SETTINGS: Record<DeviceTypeName, DeviceSettings> = {
@@ -58,7 +61,6 @@ export const DEFAULT_SETTINGS: Record<DeviceTypeName, DeviceSettings> = {
   snmp_v3: DEFAULT_SNMP_V3_SETTINGS
 };
 
-export const DEVICE_TYPE_OPTIONS = (
-  Object.entries(DEVICE_TYPE_LABELS) as Array<[DeviceTypeName, string]>
-).map(([value, label]) => ({ value, label }));
-
+export const DEVICE_TYPE_OPTIONS = (Object.entries(DEVICE_TYPE_LABELS) as Array<[DeviceTypeName, string]>).map(
+  ([value, label]) => ({ value, label })
+);

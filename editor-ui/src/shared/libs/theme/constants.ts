@@ -1,82 +1,193 @@
-import { ThemeColors } from "./types";
+﻿import type { AlarmColors, ThemeColors } from "./types";
 
-export const LIGHT_PALETTE: ThemeColors = {
-  primary: [
-    "#E7F5FF", // 0 - Lightest
-    "#D0EBFF", // 1
-    "#A5D8FF", // 2
-    "#74C0FC", // 3
-    "#4DABF7", // 4
-    "#339AF0", // 5 - Основной тон
-    "#228BE6", // 6 - Для кнопок/ссылок
-    "#1C7ED6", // 7
-    "#1971C2", // 8
-    "#1864AB" // 9 - Darkest
-  ],
+const DEEP_BLUE_LIGHT = [
+  "#e7f5ff",
+  "#d0ebff",
+  "#a5d8ff",
+  "#74c0fc",
+  "#4dabf7",
+  "#339af0",
+  "#228be6",
+  "#1c7ed6",
+  "#1971c2",
+  "#1864ab"
+] as const;
 
-  secondary: [
-    "#EEF3FF", // 0
-    "#DCE4F5", // 1
-    "#B9C7E2", // 2
-    "#94A8D0", // 3
-    "#748DC1", // 4
-    "#5F7CB8", // 5 - Основной тон
-    "#5474B4", // 6
-    "#44639F", // 7
-    "#39588F", // 8
-    "#2D4B81" // 9
-  ],
+const GRAY_LIGHT = [
+  "#F8F9FA",
+  "#F1F3F5",
+  "#E9ECEF",
+  "#DEE2E6",
+  "#CED4DA",
+  "#ADB5BD",
+  "#868E96",
+  "#495057",
+  "#343A40",
+  "#212529"
+] as const;
 
-  light: [
-    "#F8F9FA", // 0 - Самые светлые фоны
-    "#F1F3F5", // 1 - Subtle backgrounds
-    "#E9ECEF", // 2 - Hover states
-    "#DEE2E6", // 3 - Borders
-    "#CED4DA", // 4 - Disabled elements
-    "#ADB5BD", // 5 - Muted text
-    "#868E96", // 6 - Secondary text
-    "#495057", // 7 - Primary text
-    "#343A40", // 8 - Headings
-    "#212529" // 9 - Darkest text
-  ]
+const GRAY_DARK = [
+  "#C1C2C5",
+  "#A6A7AB",
+  "#909296",
+  "#5C5F66",
+  "#373A40",
+  "#2C2E33",
+  "#25262B",
+  "#1A1B1E",
+  "#141517",
+  "#101113"
+] as const;
+
+const ALARM_OK = [
+  "#e8f5e9",
+  "#c8e6c9",
+  "#a5d6a7",
+  "#81c784",
+  "#66bb6a",
+  "#4caf50",
+  "#4caf50",
+  "#43a047",
+  "#388e3c",
+  "#2e7d32"
+] as const;
+
+const ALARM_WARN = [
+  "#fff8e1",
+  "#ffecb3",
+  "#ffe082",
+  "#ffd54f",
+  "#ffca28",
+  "#ffa726",
+  "#ffa726",
+  "#fb8c00",
+  "#f57c00",
+  "#ef6c00"
+] as const;
+
+const ALARM_CRIT = [
+  "#ffebee",
+  "#ffcdd2",
+  "#ef9a9a",
+  "#e57373",
+  "#ef5350",
+  "#ef5350",
+  "#ef5350",
+  "#e53935",
+  "#d32f2f",
+  "#c62828"
+] as const;
+
+const ALARM_UNCERTAIN = [
+  "#e3f2fd",
+  "#bbdefb",
+  "#90caf9",
+  "#64b5f6",
+  "#42a5f5",
+  "#42a5f5",
+  "#42a5f5",
+  "#1e88e5",
+  "#1976d2",
+  "#1565c0"
+] as const;
+
+const ALARM_BAD = [
+  "#eceff1",
+  "#cfd8dc",
+  "#b0bec5",
+  "#90a4ae",
+  "#78909c",
+  "#78909c",
+  "#78909c",
+  "#607d8b",
+  "#546e7a",
+  "#455a64"
+] as const;
+
+const ALARM_COMM = [
+  "#eceff1",
+  "#cfd8dc",
+  "#b0bec5",
+  "#90a4ae",
+  "#78909c",
+  "#607d8b",
+  "#546e7a",
+  "#455a64",
+  "#37474f",
+  "#263238"
+] as const;
+
+const ALARM_OFFLINE = [
+  "#eceff1",
+  "#cfd8dc",
+  "#b0bec5",
+  "#90a4ae",
+  "#78909c",
+  "#546e7a",
+  "#37474f",
+  "#2f3e46",
+  "#263238",
+  "#1c252b"
+] as const;
+
+const ALARM_ACK = [
+  "#ede7f6",
+  "#d1c4e9",
+  "#b39ddb",
+  "#9575cd",
+  "#7e57c2",
+  "#7e57c2",
+  "#7e57c2",
+  "#6a4fb3",
+  "#5e35b1",
+  "#4527a0"
+] as const;
+
+export const ALARM_COLORS: AlarmColors = {
+  ok: "#4caf50",
+  warn: "#ffa726",
+  crit: "#ef5350",
+  uncertain: "#42a5f5",
+  bad: "#78909c",
+  comm: "#546e7a",
+  offline: "#37474f",
+  ack: "#7e57c2"
 };
 
-export const DARK_PALETTE: ThemeColors = {
+export const THEME_PALETTE: ThemeColors = {
   primary: [
-    "#3A9FD0", // 0 - Приглушённый accent
-    "#2E8AB8", // 1
-    "#2475A0", // 2
-    "#1D6088", // 3
-    "#174B70", // 4
-    "#133D5C", // 5 - Основной тон
-    "#0F2F48", // 6 - Для кнопок/ссылок
-    "#0B2334", // 7
-    "#081720", // 8
-    "#050F14" // 9 - Darkest
+    "#E7F5FF",
+    "#D0EBFF",
+    "#A5D8FF",
+    "#74C0FC",
+    "#4DABF7",
+    "#339AF0",
+    "#228BE6",
+    "#1C7ED6",
+    "#1971C2",
+    "#1864AB"
   ],
   secondary: [
-    "#A5B4C8", // 0
-    "#8A9AAF", // 1
-    "#708096", // 2
-    "#5D6A7D", // 3
-    "#4A5464", // 4
-    "#3C4452", // 5 - Основной тон
-    "#2F3540", // 6
-    "#22262E", // 7
-    "#17191D", // 8
-    "#0C0D0F" // 9
+    "#EEF3FF",
+    "#DCE4F5",
+    "#B9C7E2",
+    "#94A8D0",
+    "#748DC1",
+    "#5F7CB8",
+    "#5474B4",
+    "#44639F",
+    "#39588F",
+    "#2D4B81"
   ],
-
-  dark: [
-    "#B0B0B0", // 0 - Lightest text (приглушённый)
-    "#959595", // 1 - Light text
-    "#7A7A7A", // 2 - Muted text
-    "#4A4A4A", // 3 - Disabled text
-    "#2A2A2A", // 4 - Borders
-    "#1F1F1F", // 5 - Hover backgrounds
-    "#181818", // 6 - Subtle backgrounds
-    "#121212", // 7 - Card backgrounds
-    "#0D0D0D", // 8 - Deep backgrounds
-    "#080808" // 9 - Darkest (почти чёрный)
-  ]
+  light: [...GRAY_LIGHT],
+  dark: [...GRAY_DARK],
+  deepBlue: [...DEEP_BLUE_LIGHT],
+  alarmOk: [...ALARM_OK],
+  alarmWarn: [...ALARM_WARN],
+  alarmCrit: [...ALARM_CRIT],
+  alarmUncertain: [...ALARM_UNCERTAIN],
+  alarmBad: [...ALARM_BAD],
+  alarmComm: [...ALARM_COMM],
+  alarmOffline: [...ALARM_OFFLINE],
+  alarmAck: [...ALARM_ACK]
 };

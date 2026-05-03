@@ -1,4 +1,4 @@
-import type { ModbusRtuSettings } from "@entities/devices";
+﻿import type { ModbusRtuSettings } from "@entities/devices";
 import { NumberInput, Select, Stack, TextInput } from "@shared/ui";
 
 interface ModbusRtuFieldsProps {
@@ -22,11 +22,7 @@ const toNumber = (value: string | number, fallback: number) => {
   return fallback;
 };
 
-export const ModbusRtuFields = ({
-  settings,
-  onChange,
-  errors
-}: ModbusRtuFieldsProps) => {
+export const ModbusRtuFields = ({ settings, onChange, errors }: ModbusRtuFieldsProps) => {
   return (
     <Stack gap="sm">
       <TextInput
@@ -45,13 +41,10 @@ export const ModbusRtuFields = ({
       <Select
         label="Baud Rate"
         value={String(settings.baud_rate)}
-        data={[
-          { value: "9600", label: "9600" },
-          { value: "19200", label: "19200" },
-          { value: "38400", label: "38400" },
-          { value: "57600", label: "57600" },
-          { value: "115200", label: "115200" }
-        ]}
+        data={["1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200"].map((value) => ({
+          value,
+          label: value
+        }))}
         onChange={(value) => {
           if (!value) {
             return;
@@ -120,10 +113,7 @@ export const ModbusRtuFields = ({
 
           onChange({
             ...settings,
-            parity:
-              value === "even" || value === "odd"
-                ? value
-                : "none"
+            parity: value === "even" || value === "odd" ? value : "none"
           });
         }}
         error={errors?.parity}
@@ -141,6 +131,7 @@ export const ModbusRtuFields = ({
         error={errors?.slave_id}
         min={1}
         max={247}
+        mono
         required
       />
       <NumberInput
@@ -153,10 +144,11 @@ export const ModbusRtuFields = ({
           })
         }
         error={errors?.timeout_ms}
-        min={1}
+        min={100}
+        max={30000}
+        mono
         required
       />
     </Stack>
   );
 };
-

@@ -1,4 +1,4 @@
-export interface PaginatedResponse<T> {
+﻿export interface PaginatedResponse<T> {
   items: T[];
   total: number;
   offset: number;
@@ -16,6 +16,7 @@ export interface ApiError {
   status: number;
   detail: string;
   errors?: ApiFieldError[];
+  retryAfter?: number;
 }
 
 export class ApiRequestError extends Error {

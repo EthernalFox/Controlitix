@@ -1,4 +1,6 @@
-﻿import { NumberInput, Stack, Text } from "@shared/ui";
+﻿import { NumberInput, SimpleGrid, Stack, Text } from "@shared/ui";
+
+import styles from "./TagScalingFields.module.css";
 
 interface TagScalingFieldsValue {
   rawMin: number | null;
@@ -30,53 +32,43 @@ const toNullableNumber = (value: string | number): number | null => {
   return null;
 };
 
-export const TagScalingFields = ({
-  errors,
-  onChange,
-  values
-}: TagScalingFieldsProps) => {
+export const TagScalingFields = ({ errors, onChange, values }: TagScalingFieldsProps) => {
   return (
     <Stack gap="sm">
       <Text size="xs" c="dimmed">
-        Линейная интерполяция: укажите все 4 поля raw/eng. Либо factor/offset.
+        Линейная интерполяция raw → engineering
       </Text>
 
-      <NumberInput
-        label="Raw min"
-        value={values.rawMin ?? undefined}
-        onChange={(value) => onChange({ rawMin: toNullableNumber(value) })}
-        error={errors?.raw_min}
-      />
-      <NumberInput
-        label="Raw max"
-        value={values.rawMax ?? undefined}
-        onChange={(value) => onChange({ rawMax: toNullableNumber(value) })}
-        error={errors?.raw_max}
-      />
-      <NumberInput
-        label="Eng min"
-        value={values.engMin ?? undefined}
-        onChange={(value) => onChange({ engMin: toNullableNumber(value) })}
-        error={errors?.eng_min}
-      />
-      <NumberInput
-        label="Eng max"
-        value={values.engMax ?? undefined}
-        onChange={(value) => onChange({ engMax: toNullableNumber(value) })}
-        error={errors?.eng_max}
-      />
-      <NumberInput
-        label="Factor"
-        value={values.factor ?? undefined}
-        onChange={(value) => onChange({ factor: toNullableNumber(value) })}
-        error={errors?.factor}
-      />
-      <NumberInput
-        label="Offset"
-        value={values.offset ?? undefined}
-        onChange={(value) => onChange({ offset: toNullableNumber(value) })}
-        error={errors?.offset}
-      />
+      <SimpleGrid cols={2} spacing="sm" className={styles.grid}>
+        <NumberInput
+          label="raw_min"
+          value={values.rawMin ?? undefined}
+          onChange={(value) => onChange({ rawMin: toNullableNumber(value) })}
+          error={errors?.raw_min}
+          mono
+        />
+        <NumberInput
+          label="raw_max"
+          value={values.rawMax ?? undefined}
+          onChange={(value) => onChange({ rawMax: toNullableNumber(value) })}
+          error={errors?.raw_max}
+          mono
+        />
+        <NumberInput
+          label="eng_min"
+          value={values.engMin ?? undefined}
+          onChange={(value) => onChange({ engMin: toNullableNumber(value) })}
+          error={errors?.eng_min}
+          mono
+        />
+        <NumberInput
+          label="eng_max"
+          value={values.engMax ?? undefined}
+          onChange={(value) => onChange({ engMax: toNullableNumber(value) })}
+          error={errors?.eng_max}
+          mono
+        />
+      </SimpleGrid>
     </Stack>
   );
 };

@@ -1,4 +1,5 @@
 export * from "./ActionIcon";
+export * from "./AlarmBadge";
 export * from "./Avatar";
 export * from "./AppShell";
 export * from "./Badge";
@@ -25,6 +26,7 @@ export * from "./SimpleGrid";
 export * from "./Switch";
 export * from "./Stack";
 export * from "./Table";
+export * from "./TagSelect";
 export * from "./Tabs";
 export * from "./Text";
 export * from "./Textarea";

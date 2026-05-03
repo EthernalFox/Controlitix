@@ -52,6 +52,7 @@ export const ModbusAddressFields = ({
         label="Адрес регистра"
         min={0}
         max={65535}
+        mono
         value={address ?? undefined}
         onChange={(value) => onChange({ address: toNullableNumber(value) })}
         error={errors?.["address.address"]}

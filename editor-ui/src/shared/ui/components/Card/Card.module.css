@@ -1,0 +1,17 @@
+.flat {
+  background: var(--mantine-color-default);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 4px;
+  padding: 18px;
+}
+
+.glass {
+  background: var(--ctrx-glass-bg);
+  border: 1px solid var(--ctrx-glass-border);
+  border-radius: 14px;
+  box-shadow: var(--ctrx-glass-shadow);
+  backdrop-filter: var(--ctrx-glass-blur);
+  -webkit-backdrop-filter: var(--ctrx-glass-blur);
+  padding: 18px;
+}
+

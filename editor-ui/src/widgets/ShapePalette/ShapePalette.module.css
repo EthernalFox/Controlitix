@@ -1,0 +1,22 @@
+.paletteGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.paletteItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.shortcut {
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 11px;
+  color: var(--mantine-color-placeholder);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  line-height: 1.2;
+}

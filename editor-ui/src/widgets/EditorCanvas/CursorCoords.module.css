@@ -1,0 +1,23 @@
+.cursorChip {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ctrx-glass-border);
+  background: var(--ctrx-glass-bg-strong);
+  backdrop-filter: var(--ctrx-glass-blur);
+  -webkit-backdrop-filter: var(--ctrx-glass-blur);
+  color: var(--mantine-color-dimmed);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.mono {
+  font-family: var(--mantine-font-family-monospace);
+  color: var(--mantine-color-text);
+}

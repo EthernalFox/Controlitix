@@ -1,0 +1,22 @@
+.canvasContainer {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background-color: var(--ctrx-canvas-bg);
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--mantine-color-placeholder) 18%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--mantine-color-placeholder) 18%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: var(--grid-size, 20px) var(--grid-size, 20px);
+}
+
+.gridOff {
+  background-image: none;
+}

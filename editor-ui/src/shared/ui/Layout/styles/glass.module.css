@@ -1,0 +1,63 @@
+.glass {
+  position: relative;
+  background: var(--ctrx-glass-bg);
+  backdrop-filter: var(--ctrx-glass-blur);
+  -webkit-backdrop-filter: var(--ctrx-glass-blur);
+  border: 1px solid var(--ctrx-glass-border);
+  border-radius: 0;
+  box-shadow: var(--ctrx-glass-shadow);
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--ctrx-glass-highlight);
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.glass > * {
+  position: relative;
+  z-index: 2;
+}
+
+.glassStrong {
+  background: var(--ctrx-glass-bg-strong);
+}
+
+.glassSoft {
+  background: var(--ctrx-glass-bg-soft);
+}
+
+.glassFlat {
+  border-radius: 0;
+}
+
+.slot {
+  overflow: hidden;
+  transition: width 200ms ease;
+}
+
+@supports not (backdrop-filter: var(--ctrx-glass-blur)) {
+  .glass {
+    background: var(--mantine-color-default);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    background: var(--mantine-color-default);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .glass::before {
+    display: none;
+  }
+}

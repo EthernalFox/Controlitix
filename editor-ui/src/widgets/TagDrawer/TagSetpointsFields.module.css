@@ -1,0 +1,29 @@
+.setpointLolo {
+  --setpoint-color: var(--ctrx-alarm-crit);
+}
+
+.setpointLo {
+  --setpoint-color: var(--ctrx-alarm-warn);
+}
+
+.setpointHi {
+  --setpoint-color: var(--ctrx-alarm-warn);
+}
+
+.setpointHihi {
+  --setpoint-color: var(--ctrx-alarm-crit);
+}
+
+.setpointLolo input,
+.setpointLo input,
+.setpointHi input,
+.setpointHihi input {
+  border-color: color-mix(in srgb, var(--setpoint-color) 30%, var(--ctrx-glass-border-inner));
+}
+
+.setpointLolo input:focus,
+.setpointLo input:focus,
+.setpointHi input:focus,
+.setpointHihi input:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--setpoint-color) 18%, transparent);
+}

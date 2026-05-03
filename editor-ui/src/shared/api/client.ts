@@ -1,3 +1,9 @@
+﻿import {
+  getAccessToken,
+  notifySessionExpired,
+  notifyUnauthenticated,
+  runRefreshAccessToken
+} from "./auth-token";
 import type { ApiError } from "./types";
 import { ApiRequestError } from "./types";
 
@@ -9,6 +15,10 @@ type QueryParams = Record<string, Primitive>;
 
 interface RequestOptions extends RequestInit {
   params?: QueryParams;
+}
+
+interface RequestMeta {
+  skipAuthRefresh: boolean;
 }
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
@@ -63,45 +73,133 @@ const parseResponseBody = async (response: Response): Promise<unknown> => {
 };
 
 const toApiError = (response: Response, data: unknown): ApiError => {
+  const retryAfterHeader = response.headers.get("Retry-After");
+  const retryAfter = retryAfterHeader ? Number.parseInt(retryAfterHeader, 10) : undefined;
+
   if (isPlainObject(data) && "type" in data && "title" in data && "status" in data) {
-    return toCamelCaseDeep<ApiError>(data);
+    const mappedError = toCamelCaseDeep<ApiError>(data);
+    if (!Number.isNaN(retryAfter ?? Number.NaN)) {
+      mappedError.retryAfter = retryAfter;
+    }
+
+    return mappedError;
   }
 
   return {
     type: "/problems/internal-error",
     title: response.statusText || "Request failed",
     status: response.status,
-    detail: response.statusText || "Request failed"
+    detail: response.statusText || "Request failed",
+    retryAfter: !Number.isNaN(retryAfter ?? Number.NaN) ? retryAfter : undefined
   };
 };
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { params, headers, body, ...requestInit } = options;
-  const url = buildUrl(path, params);
+const shouldSkipRefreshForPath = (path: string): boolean => {
+  return (
+    path.startsWith("/auth/login") ||
+    path.startsWith("/auth/refresh") ||
+    path.startsWith("/auth/logout")
+  );
+};
 
-  const response = await fetch(url, {
+const shouldAttemptAuthRefresh = (
+  path: string,
+  apiError: ApiError,
+  meta: RequestMeta
+): boolean => {
+  if (meta.skipAuthRefresh || shouldSkipRefreshForPath(path)) {
+    return false;
+  }
+
+  if (apiError.status !== 401) {
+    return false;
+  }
+
+  return (
+    apiError.type === "/errors/auth/token-expired" ||
+    apiError.type === "/errors/auth/invalid-token"
+  );
+};
+
+const buildRequestInit = (options: RequestOptions): RequestInit => {
+  const requestInit = { ...options } as RequestOptions;
+  const { headers, body } = requestInit;
+  delete requestInit.params;
+
+  const accessToken = getAccessToken();
+
+  return {
     ...requestInit,
+    credentials: "include",
     headers: {
       Accept: "application/json",
       ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...(headers ?? {})
     },
     body
-  });
+  };
+};
 
-  const responseBody = await parseResponseBody(response);
+async function request<T>(
+  path: string,
+  options: RequestOptions = {},
+  meta: RequestMeta = { skipAuthRefresh: false }
+): Promise<T> {
+  const { params } = options;
+  const url = buildUrl(path, params);
 
-  if (!response.ok) {
-    throw new ApiRequestError(toApiError(response, responseBody));
+  try {
+    const response = await fetch(url, buildRequestInit(options));
+    const responseBody = await parseResponseBody(response);
+
+    if (!response.ok) {
+      const apiError = toApiError(response, responseBody);
+
+      if (shouldAttemptAuthRefresh(path, apiError, meta)) {
+        try {
+          await runRefreshAccessToken();
+        } catch {
+          notifySessionExpired();
+          throw new ApiRequestError(apiError);
+        }
+
+        try {
+          return await request<T>(path, options, { skipAuthRefresh: true });
+        } catch (retryError) {
+          if (retryError instanceof ApiRequestError && retryError.payload.status === 401) {
+            notifyUnauthenticated();
+          }
+
+          throw retryError;
+        }
+      }
+
+      throw new ApiRequestError(apiError);
+    }
+
+    return toCamelCaseDeep<T>(responseBody);
+  } catch (error) {
+    if (error instanceof ApiRequestError) {
+      throw error;
+    }
+
+    throw new ApiRequestError({
+      type: "/problems/internal-error",
+      title: "Request failed",
+      status: 0,
+      detail: "Network request failed"
+    });
   }
-
-  return toCamelCaseDeep<T>(responseBody);
 }
 
 export const api = {
   get: <T>(path: string, params?: QueryParams) => request<T>(path, { params }),
-  post: <T>(path: string, body: unknown) =>
-    request<T>(path, { method: "POST", body: JSON.stringify(body) }),
+  post: <T>(path: string, body?: unknown) =>
+    request<T>(path, {
+      method: "POST",
+      ...(body === undefined ? {} : { body: JSON.stringify(body) })
+    }),
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
   put: <T>(path: string, body: unknown) =>
