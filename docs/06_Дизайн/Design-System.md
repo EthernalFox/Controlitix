@@ -40,18 +40,34 @@ Mantine-компоненты **не импортируются напрямую*
 
 ### Конфигурация темы
 
-Тема настраивается через `createTheme()` + `MantineProvider`. Ключевые точки:
+Тема настраивается через **единый** `createTheme()` + `MantineProvider` (одна точка входа, без вложенных провайдеров).
 
 | Параметр | Значение |
 |---|---|
-| `primaryColor` | `"primary"` (кастомная палитра из 10 оттенков) |
+| `primaryColor` | `"deepBlue"` (10-шейдовая палитра) |
 | `fontFamily` | Inter, sans-serif |
 | `fontFamilyMonospace` | JetBrains Mono, monospace |
 | `defaultRadius` | `"sm"` (4px) |
-| `spacing` | `{ xs: 4, sm: 8, md: 16, lg: 24, xl: 32 }` |
-| `colors` | кастомные палитры `primary`, `secondary` + семантические цвета тревог |
+| `spacing` | `{ xs: 4px, sm: 8px, md: 16px, lg: 24px, xl: 32px }` |
+| `colors` | `THEME_PALETTE`: deepBlue, light/dark grays, 8 alarm palettes |
+| `cssVariablesResolver` | генерирует `--ctrx-*` токены для обеих тем |
 
-Переключатель темы — в меню пользователя (header). Состояние хранится в `localStorage`.
+Переключатель темы — в меню пользователя (header). Состояние хранится в `localStorage` с ключом `controlitix-theme`.
+
+**Архитектура токен-системы:**
+
+```
+createTheme() + cssVariablesResolver
+        │
+        ▼
+Mantine инжектирует в DOM:
+  :root                              → --ctrx-alarm-*, --ctrx-header-h, --ctrx-glass-blur, ...
+  [data-mantine-color-scheme=light]  → --ctrx-canvas-bg: #f5f5f5, --ctrx-glass-bg: rgba(255,255,255,0.55), ...
+  [data-mantine-color-scheme=dark]   → --ctrx-canvas-bg: #111422, --ctrx-glass-bg: rgba(35,39,64,0.55), ...
+  (поверхности/текст/границы — через встроенные --mantine-color-body, --mantine-color-text, ...)
+```
+
+Полная таблица токенов — `docs/06_Дизайн/Tokens.md`.
 
 ---
 
@@ -66,51 +82,47 @@ Mantine-компоненты **не импортируются напрямую*
 
 Обе темы обязательны в MVP. Пользователь может переключить тему вручную.
 
-### Light Theme — editor-ui (основная)
+### Пространства имён токенов
 
-| Токен | Hex | Использование |
-|---|---|---|
-| `bg-primary` | `#FFFFFF` | Основной фон |
-| `bg-secondary` | `#F8F9FA` | Панели, sidebar |
-| `bg-surface` | `#FFFFFF` | Карточки, модалки |
-| `bg-elevated` | `#F1F3F5` | Hover, tooltip |
-| `border-default` | `#DEE2E6` | Границы, разделители |
-| `text-primary` | `#212529` | Основной текст |
-| `text-secondary` | `#495057` | Вторичный текст |
-| `text-muted` | `#868E96` | Неактивный текст |
-| `accent-blue` | `#228BE6` | Акцент, ссылки, выделение |
-| `canvas-bg` | `#F5F5F5` | Фон холста редактора |
-| `toolbar-bg` | `#FAFAFA` | Фон footer-toolbar |
+Токены в CSS-модулях следуют строгому правилу двух уровней:
 
-### Dark Theme — viewer-ui (основная)
+| Namespace | Когда использовать |
+|---|---|
+| `var(--mantine-*)` | Поверхности, текст, границы, spacing, radius — всё, что Mantine покрывает нативно |
+| `var(--ctrx-*)` | Только то, чего нет в Mantine: alarm-цвета, glass morphism, canvas, ambient orbs |
 
-| Токен | Hex | Использование |
-|---|---|---|
-| `bg-primary` | `#111422` | Основной фон |
-| `bg-secondary` | `#1A1D2E` | Панели, sidebar |
-| `bg-surface` | `#232740` | Карточки, модалки |
-| `bg-elevated` | `#2D3154` | Hover, tooltip |
-| `border-default` | `#3A3F5C` | Границы, разделители |
-| `text-primary` | `#E8EAF0` | Основной текст |
-| `text-secondary` | `#9CA3B8` | Вторичный текст |
-| `text-muted` | `#6B7394` | Неактивный текст |
-| `accent-blue` | `#4C9AFF` | Акцент, ссылки, выделение |
-| `canvas-bg` | `#111422` | Фон холста |
-| `toolbar-bg` | `#232740` | Фон footer-toolbar |
+**Никаких hex / rgba() в CSS-модулях.** Старые `--bg-*`, `--text-*`, `--border-*`, `--accent-*` — удалены (spec 0047).
 
-### Маппинг токенов на Mantine
+### Поверхности, текст, границы — через Mantine
 
-Токены реализуются через кастомные `colors` в `createTheme()`:
+Mantine 8 автоматически переключает эти переменные при смене `colorScheme`:
 
-```
-bg-primary    → Mantine body background (theme.other или CSS var)
-bg-secondary  → AppShell.Navbar / AppShell.Aside background
-bg-surface    → Card, Modal background
-border-default → theme.colors.gray[3] (light) / custom dark[4] (dark)
-accent-blue   → theme.primaryColor shade [6]
-```
+| Mantine var | Назначение |
+|---|---|
+| `--mantine-color-body` | Фон страницы |
+| `--mantine-color-default` | Фон карточек, панелей, overlay |
+| `--mantine-color-default-hover` | Hover-состояние |
+| `--mantine-color-default-border` | Разделители, обводки |
+| `--mantine-color-text` | Основной текст |
+| `--mantine-color-dimmed` | Вторичный текст |
+| `--mantine-color-placeholder` | Плейсхолдеры, приглушённые метки |
+| `--mantine-color-anchor` | Ссылки, акцентный текст |
+| `--mantine-color-error` | Ошибки валидации |
+| `--mantine-color-deepBlue-6` | Акцентный синий (кнопки, focus ring) |
 
-Семантические цвета тревог маппятся как дополнительные `colors` в теме, чтобы их можно было использовать через `color="alarm-ok"` в Badge, Text и других компонентах.
+### Что добавляет `--ctrx-*`
+
+Только проект-специфические концепты, которых нет в Mantine:
+
+| Группа | Токены |
+|---|---|
+| Alarm (HMI) | `--ctrx-alarm-ok/warn/crit/uncertain/bad/comm/offline/ack` |
+| Glass morphism | `--ctrx-glass-bg/bg-strong/bg-soft/border/shadow/blur/highlight` |
+| Canvas | `--ctrx-canvas-bg`, `--ctrx-canvas-grid` |
+| Ambient orbs | `--ctrx-orb-1/2/3/4` |
+| Layout dims | `--ctrx-header-h`, `--ctrx-panel-w`, `--ctrx-aside-w`, `--ctrx-footer-h` |
+
+Полная таблица значений с примерами — `docs/06_Дизайн/Tokens.md`.
 
 ---
 
@@ -155,10 +167,10 @@ accent-blue   → theme.primaryColor shade [6]
 ### Маппинг на Mantine
 
 ```
-theme.fontFamily        = "Inter, sans-serif"
-theme.fontFamilyMonospace = "JetBrains Mono, monospace"
-theme.fontSizes         = { xs: 11, sm: 13, md: 14, lg: 16, xl: 20 }
-theme.headings.fontFamily = "Inter, sans-serif"
+theme.fontFamily              = "Inter, sans-serif"          → var(--mantine-font-family)
+theme.fontFamilyMonospace     = "JetBrains Mono, monospace"  → var(--mantine-font-family-monospace)
+theme.fontSizes               = { xs: 11px, sm: 13px, md: 14px, lg: 16px, xl: 20px }
+theme.headings.fontFamily     = "Inter, sans-serif"
 ```
 
 ---
@@ -181,9 +193,12 @@ theme.headings.fontFamily = "Inter, sans-serif"
 
 ```
 theme.spacing = { xs: "4px", sm: "8px", md: "16px", lg: "24px", xl: "32px" }
+             → var(--mantine-spacing-xs/sm/md/lg/xl)
 ```
 
 Компоненты: `<Stack gap="sm">`, `<Group gap={8}>`, `<Card p="md">`.
+
+В CSS-модулях: `padding: var(--mantine-spacing-md)`, `gap: var(--mantine-spacing-xs)`.
 
 ---
 
@@ -309,9 +324,10 @@ Navbar и Panel **взаимоисключающие** — никогда не �
 ## Связанные документы
 
 - [`README.md`](README.md) — обзор раздела дизайна.
+- [`Tokens.md`](Tokens.md) — **полный справочник `--ctrx-*` токенов** (все значения light/dark).
 - [`Information-Architecture.md`](Information-Architecture.md) — sitemap и навигационная модель editor-ui.
 - [`Figure-Types.md`](Figure-Types.md) — набор типов фигур и контракт figure_params.
+- [`Design-Decisions.md`](Design-Decisions.md) — принятые дизайн-решения (DD-001: glass morphism).
 - [`HMI-Visual-Language.md`](HMI-Visual-Language.md) — TBD, детальное описание отображения оборудования.
 - [`Components.md`](Components.md) — TBD, каталог кастомных компонентов (детали).
 - [`../09_План-работ/README.md`](../09_План-работ/README.md) — Phase 0 описывает полный scope дизайн-фазы.
-- [`../../specs/0001.ready.editor-ui-layout-design-system.md`](../../specs/0001.ready.editor-ui-layout-design-system.md) — спецификация на реализацию.

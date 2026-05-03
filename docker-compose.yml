@@ -27,7 +27,7 @@ services:
       - controlitix
 
   kafka:
-    image: bitnami/kafka:3.7
+    image: bitnamilegacy/kafka:3.7.0
     container_name: controlitix-kafka
     restart: unless-stopped
     environment:
@@ -57,8 +57,24 @@ services:
     networks:
       - controlitix
 
+  redis:
+    image: redis:7-alpine
+    container_name: controlitix-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - controlitix
+
   # ============================================================
-  # ms-editor (Go) — objects, devices, tags, diagrams
+  # ms-editor (Go) - objects, devices, tags, diagrams
   # ============================================================
 
   ms-editor-migrate:
@@ -104,8 +120,135 @@ services:
     networks:
       - controlitix
 
+  ms-auth-migrate:
+    build:
+      context: ./ms-auth
+      dockerfile: Dockerfile
+    image: controlitix/ms-auth:latest
+    container_name: controlitix-ms-auth-migrate
+    restart: "no"
+    entrypoint: ["/app/ms-auth-migrate"]
+    command: ["up"]
+    environment:
+      MS_AUTH_DATABASE_URL: ${MS_AUTH_DATABASE_URL}
+      MS_AUTH_PASSWORD_PEPPER: ${MS_AUTH_PASSWORD_PEPPER}
+      MS_AUTH_JWT_PRIVATE_KEY: ${MS_AUTH_JWT_PRIVATE_KEY}
+      MS_AUTH_INITIAL_ADMIN_USERNAME: ${MS_AUTH_INITIAL_ADMIN_USERNAME:-admin}
+      MS_AUTH_INITIAL_ADMIN_EMAIL: ${MS_AUTH_INITIAL_ADMIN_EMAIL:-admin@example.local}
+      MS_AUTH_INITIAL_ADMIN_PASSWORD_HASH: ${MS_AUTH_INITIAL_ADMIN_PASSWORD_HASH}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - controlitix
+
+  ms-auth:
+    build:
+      context: ./ms-auth
+      dockerfile: Dockerfile
+    image: controlitix/ms-auth:latest
+    container_name: controlitix-ms-auth
+    restart: unless-stopped
+    environment:
+      MS_AUTH_HTTP_ADDRESS: ":8083"
+      MS_AUTH_LOG_LEVEL: ${MS_AUTH_LOG_LEVEL:-info}
+      MS_AUTH_DATABASE_URL: ${MS_AUTH_DATABASE_URL}
+      MS_AUTH_PASSWORD_PEPPER: ${MS_AUTH_PASSWORD_PEPPER}
+      MS_AUTH_JWT_PRIVATE_KEY: ${MS_AUTH_JWT_PRIVATE_KEY}
+      MS_AUTH_JWT_KEY_ID: ${MS_AUTH_JWT_KEY_ID:-default}
+      MS_AUTH_JWT_ISSUER: ${MS_AUTH_JWT_ISSUER:-controlitix-auth}
+      MS_AUTH_JWT_AUDIENCE_USER: ${MS_AUTH_JWT_AUDIENCE_USER:-controlitix-api}
+      MS_AUTH_KAFKA_BROKERS: ${MS_AUTH_KAFKA_BROKERS:-kafka:9092}
+      MS_AUTH_KAFKA_AUDIT_TOPIC: ${MS_AUTH_KAFKA_AUDIT_TOPIC:-audit.logs}
+    depends_on:
+      ms-auth-migrate:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
+    expose:
+      - "8083"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - controlitix
+
+  ms-poll:
+    build:
+      context: ./ms-poll
+      dockerfile: Dockerfile
+    image: controlitix/ms-poll:latest
+    container_name: controlitix-ms-poll
+    restart: unless-stopped
+    environment:
+      MS_POLL_HTTP_ADDRESS: ":8081"
+      MS_POLL_LOG_LEVEL: ${MS_POLL_LOG_LEVEL:-info}
+      MS_POLL_DATABASE_URL: ${MS_POLL_DATABASE_URL}
+      MS_POLL_KAFKA_BROKERS: ${MS_POLL_KAFKA_BROKERS:-kafka:9092}
+      MS_POLL_KAFKA_CONFIG_TOPIC: ${MS_POLL_KAFKA_CONFIG_TOPIC:-config.changed}
+      MS_POLL_KAFKA_TAG_VALUES_TOPIC: ${MS_POLL_KAFKA_TAG_VALUES_TOPIC:-tags.values}
+    depends_on:
+      ms-editor-migrate:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
+    expose:
+      - "8081"
+    networks:
+      - controlitix
+
+  ms-viewer-migrate:
+    build:
+      context: ./ms-viewer
+      dockerfile: Dockerfile
+    image: controlitix/ms-viewer:latest
+    container_name: controlitix-ms-viewer-migrate
+    restart: "no"
+    entrypoint: ["/app/ms-viewer-migrate"]
+    command: ["up"]
+    environment:
+      MS_VIEWER_DATABASE_URL: ${MS_VIEWER_DATABASE_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - controlitix
+
+  ms-viewer:
+    build:
+      context: ./ms-viewer
+      dockerfile: Dockerfile
+    image: controlitix/ms-viewer:latest
+    container_name: controlitix-ms-viewer
+    restart: unless-stopped
+    environment:
+      MS_VIEWER_HTTP_ADDRESS: ":8084"
+      MS_VIEWER_LOG_LEVEL: ${MS_VIEWER_LOG_LEVEL:-info}
+      MS_VIEWER_DATABASE_URL: ${MS_VIEWER_DATABASE_URL}
+      MS_VIEWER_REDIS_URL: ${MS_VIEWER_REDIS_URL:-redis://redis:6379}
+      MS_VIEWER_KAFKA_BROKERS: ${MS_VIEWER_KAFKA_BROKERS:-kafka:9092}
+      MS_VIEWER_JWKS_URL: ${MS_VIEWER_JWKS_URL:-http://ms-auth:8083/jwks}
+      MS_VIEWER_JWT_ISSUER: ${MS_VIEWER_JWT_ISSUER:-controlitix-auth}
+      MS_VIEWER_JWT_AUDIENCE_USER: ${MS_VIEWER_JWT_AUDIENCE_USER:-controlitix-api}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+    depends_on:
+      ms-viewer-migrate:
+        condition: service_completed_successfully
+      ms-auth:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    expose:
+      - "8084"
+    networks:
+      - controlitix
+
   # ============================================================
-  # editor-ui (React/Vite) — engineering UI, served by nginx
+  # editor-ui (React/Vite) - engineering UI, served by nginx
   # ============================================================
 
   editor-ui:
@@ -122,8 +265,23 @@ services:
     networks:
       - controlitix
 
+  viewer-ui:
+    build:
+      context: ./viewer-ui
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VIEWER_UI_API_URL:-/api/viewer}
+        VITE_WS_URL: ${VIEWER_UI_WS_URL:-/api/viewer/ws}
+    image: controlitix/viewer-ui:latest
+    container_name: controlitix-viewer-ui
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - controlitix
+
   # ============================================================
-  # Gateway (Nginx) — single entry point
+  # Gateway (Nginx) - single entry point
   # ============================================================
 
   gateway:
@@ -136,13 +294,17 @@ services:
       - "${GATEWAY_HTTP_PORT:-80}:80"
     depends_on:
       - ms-editor
+      - ms-auth
+      - ms-viewer
       - editor-ui
+      - viewer-ui
     networks:
       - controlitix
 
 volumes:
   postgres_data:
   kafka_data:
+  redis_data:
 
 networks:
   controlitix:

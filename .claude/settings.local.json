@@ -16,7 +16,12 @@
       "Bash(go build *)",
       "Bash(mv specs/0026.review.viewer-ui-skeleton.md specs/0026.rework.viewer-ui-skeleton.md)",
       "Bash(mv specs/0027.review.viewer-ui-login.md specs/0027.done.viewer-ui-login.md)",
-      "Bash(mv specs/0028.review.viewer-ui-trends-client.md specs/0028.done.viewer-ui-trends-client.md)"
+      "Bash(mv specs/0028.review.viewer-ui-trends-client.md specs/0028.done.viewer-ui-trends-client.md)",
+      "Bash(mv 0035.review.ms-viewer-notifier-telegram.md 0035.rework.ms-viewer-notifier-telegram.md)",
+      "Bash(mv 0036.review.ms-viewer-rbac-and-audit.md 0036.done.ms-viewer-rbac-and-audit.md)",
+      "Bash(mv 0037.review.editor-ui-tokens-and-theme.md 0037.done.editor-ui-tokens-and-theme.md)",
+      "Bash(mv 0038.review.editor-ui-glass-and-appshell.md 0038.done.editor-ui-glass-and-appshell.md)",
+      "Bash(mv 0039.review.editor-ui-component-restyle.md 0039.done.editor-ui-component-restyle.md)"
     ]
   },
   "enabledPlugins": {
