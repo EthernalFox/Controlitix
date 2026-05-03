@@ -125,6 +125,7 @@ export interface AlarmMessage {
   t: "alarm";
   event_type: "raised" | "cleared" | "acked" | "suppressed" | "unsuppressed";
   tag_id: string;
+  object_id?: string;
   state_from: "ok" | "lo" | "hi" | "lolo" | "hihi" | "uncertain" | "bad" | "comm_loss" | "offline";
   state_to: "ok" | "lo" | "hi" | "lolo" | "hihi" | "uncertain" | "bad" | "comm_loss" | "offline";
   value: number | null;
@@ -132,6 +133,12 @@ export interface AlarmMessage {
   ts: string;
   actor_id: string | null;
   note: string | null;
+}
+
+export interface AlarmsBatchMessage {
+  t: "alarms_batch";
+  ts: string;
+  events: Array<Omit<AlarmMessage, "t">>;
 }
 
 export interface AlarmsSnapshotMessage {
@@ -151,4 +158,5 @@ export type ServerMessage =
   | ConfigChangedMessage
   | TopicsChangedMessage
   | AlarmMessage
+  | AlarmsBatchMessage
   | AlarmsSnapshotMessage;

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAlarmsStore } from "@/features/alarms";
 import { fetchObjects } from "@/features/diagram";
@@ -10,9 +10,11 @@ import {
   Stack,
   Text,
   TextInput,
-  Title
+  Title,
+  notify
 } from "@/shared/ui/components";
 import { AlarmRow } from "@/widgets/AlarmRow";
+import { AlarmsBulkAckModal } from "@/widgets/AlarmsBulkAckModal";
 
 interface ObjectOption {
   value: string;
@@ -20,16 +22,20 @@ interface ObjectOption {
 }
 
 const statusOptions = [
-  { value: "active", label: "Active" },
-  { value: "acked", label: "Acked" },
-  { value: "cleared", label: "Cleared" }
+  { value: "active", label: "Активные" },
+  { value: "acked", label: "Квитированные" },
+  { value: "cleared", label: "Снятые" }
 ];
 
 const severityOptions = [
-  { value: "", label: "All severities" },
-  { value: "warn", label: "Warn (lo/hi)" },
-  { value: "alarm", label: "Alarm (lolo/hihi)" }
+  { value: "", label: "Все уровни" },
+  { value: "warn", label: "Предупреждения (lo/hi)" },
+  { value: "alarm", label: "Тревоги (lolo/hihi)" }
 ];
+
+const isAckable = (item: { state: string; acked: boolean }): boolean => {
+  return item.state !== "ok" && !item.acked;
+};
 
 export const AlarmsPage = () => {
   const query = useAlarmsStore((state) => state.query);
@@ -37,17 +43,34 @@ export const AlarmsPage = () => {
   const total = useAlarmsStore((state) => state.total);
   const loading = useAlarmsStore((state) => state.loading);
   const error = useAlarmsStore((state) => state.error);
+  const pendingAckTagIds = useAlarmsStore((state) => state.pendingAckTagIds);
   const load = useAlarmsStore((state) => state.load);
   const refresh = useAlarmsStore((state) => state.refresh);
   const acknowledge = useAlarmsStore((state) => state.acknowledge);
+  const acknowledgeBulk = useAlarmsStore((state) => state.acknowledgeBulk);
+  const startRealtime = useAlarmsStore((state) => state.startRealtime);
+  const stopRealtime = useAlarmsStore((state) => state.stopRealtime);
 
   const [objectOptions, setObjectOptions] = useState<ObjectOption[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+
+  const masterRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (items.length === 0) {
       void load();
     }
   }, [items.length, load]);
+
+  useEffect(() => {
+    startRealtime();
+
+    return () => {
+      stopRealtime();
+    };
+  }, [startRealtime, stopRealtime]);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,6 +101,36 @@ export const AlarmsPage = () => {
     };
   }, []);
 
+  const ackableItems = useMemo(() => {
+    return items.filter((item) => isAckable(item));
+  }, [items]);
+
+  useEffect(() => {
+    const visibleIds = new Set(ackableItems.map((item) => item.tagId));
+
+    setSelected((previous) => {
+      const next = new Set<string>();
+      previous.forEach((id) => {
+        if (visibleIds.has(id)) {
+          next.add(id);
+        }
+      });
+      return next;
+    });
+  }, [ackableItems]);
+
+  const selectedCount = selected.size;
+  const allAckableSelected = ackableItems.length > 0 && selectedCount === ackableItems.length;
+  const isIndeterminate = selectedCount > 0 && selectedCount < ackableItems.length;
+
+  useEffect(() => {
+    if (!masterRef.current) {
+      return;
+    }
+
+    masterRef.current.indeterminate = isIndeterminate;
+  }, [isIndeterminate]);
+
   const totalPages = useMemo(() => {
     if (query.limit <= 0) {
       return 1;
@@ -94,19 +147,79 @@ export const AlarmsPage = () => {
     return Math.floor(query.offset / query.limit) + 1;
   }, [query.limit, query.offset]);
 
+  const selectedItems = useMemo(() => {
+    const selectedIds = selected;
+    return items.filter((item) => selectedIds.has(item.tagId));
+  }, [items, selected]);
+
+  const toggleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelected(new Set(ackableItems.map((item) => item.tagId)));
+      return;
+    }
+
+    setSelected(new Set());
+  };
+
+  const onSelectRow = (tagId: string, checked: boolean) => {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (checked) {
+        next.add(tagId);
+      } else {
+        next.delete(tagId);
+      }
+      return next;
+    });
+  };
+
+  const onBulkSubmit = async (note: string | null) => {
+    setBulkSubmitting(true);
+    try {
+      const response = await acknowledgeBulk(Array.from(selected), note);
+
+      if (response.failedN > 0) {
+        notify.show({
+          color: "alarm-warn",
+          title: "Частичное квитирование",
+          message: `${response.successN} квитировано, ${response.failedN} не удалось`,
+          autoClose: false
+        });
+      } else {
+        notify.show({
+          color: "alarm-ok",
+          title: "Квитирование выполнено",
+          message: `Квитировано ${response.successN} тревог`,
+          autoClose: 4000
+        });
+      }
+
+      setBulkModalOpen(false);
+      setSelected(new Set());
+    } catch (submitError) {
+      notify.show({
+        color: "alarm-alarm",
+        title: "Квитирование не выполнено",
+        message: submitError instanceof Error ? submitError.message : "Сетевая ошибка"
+      });
+    } finally {
+      setBulkSubmitting(false);
+    }
+  };
+
   return (
     <Stack gap="md">
       <Group justify="space-between" align="center">
-        <Title order={2}>Alarms</Title>
+        <Title order={2}>Тревоги</Title>
         <Button variant="ghost" onClick={() => void refresh()}>
-          Refresh
+          Обновить
         </Button>
       </Group>
 
       <Card withBorder p="md">
         <Group gap="sm" wrap="wrap">
           <Select
-            label="Status"
+            label="Статус"
             data={statusOptions}
             value={query.status}
             onChange={(value) => {
@@ -115,11 +228,11 @@ export const AlarmsPage = () => {
                 offset: 0
               });
             }}
-            w={180}
+            w={200}
           />
 
           <Select
-            label="Severity"
+            label="Уровень"
             data={severityOptions}
             value={query.severity}
             onChange={(value) => {
@@ -128,12 +241,12 @@ export const AlarmsPage = () => {
                 offset: 0
               });
             }}
-            w={220}
+            w={250}
           />
 
           <Select
-            label="Object"
-            data={[{ value: "", label: "All objects" }, ...objectOptions]}
+            label="Объект"
+            data={[{ value: "", label: "Все объекты" }, ...objectOptions]}
             value={query.objectId}
             onChange={(value) => {
               void load({
@@ -148,7 +261,7 @@ export const AlarmsPage = () => {
           {query.status === "cleared" ? (
             <>
               <TextInput
-                label="From (RFC3339)"
+                label="С"
                 value={query.from}
                 onChange={(event) => {
                   void load({ from: event.currentTarget.value, offset: 0 });
@@ -157,7 +270,7 @@ export const AlarmsPage = () => {
                 w={240}
               />
               <TextInput
-                label="To (RFC3339)"
+                label="По"
                 value={query.to}
                 onChange={(event) => {
                   void load({ to: event.currentTarget.value, offset: 0 });
@@ -170,42 +283,77 @@ export const AlarmsPage = () => {
         </Group>
       </Card>
 
+      {selectedCount > 0 ? (
+        <Card withBorder p="sm">
+          <Group justify="space-between" align="center">
+            <Text>Выбрано: {selectedCount}</Text>
+            <Group gap="xs">
+              <Button variant="secondary" onClick={() => setBulkModalOpen(true)}>
+                Квитировать выделенные
+              </Button>
+              <Button variant="ghost" onClick={() => setSelected(new Set())}>
+                Снять выбор
+              </Button>
+            </Group>
+          </Group>
+        </Card>
+      ) : null}
+
       <Card withBorder p={0}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                <th style={{ textAlign: "left", padding: "10px" }}>Tag</th>
-                <th style={{ textAlign: "left", padding: "10px" }}>Object</th>
-                <th style={{ textAlign: "left", padding: "10px" }}>State</th>
-                <th style={{ textAlign: "left", padding: "10px" }}>Value</th>
-                <th style={{ textAlign: "left", padding: "10px" }}>Entered</th>
-                <th style={{ textAlign: "left", padding: "10px" }}>Action</th>
+                <th style={{ textAlign: "left", padding: "10px", width: 44 }}>
+                  {ackableItems.length > 0 ? (
+                    <input
+                      ref={masterRef}
+                      type="checkbox"
+                      checked={allAckableSelected}
+                      onChange={(event) => toggleSelectAll(event.currentTarget.checked)}
+                      aria-label="Выбрать все"
+                    />
+                  ) : null}
+                </th>
+                <th style={{ textAlign: "left", padding: "10px" }}>Тег</th>
+                <th style={{ textAlign: "left", padding: "10px" }}>Объект</th>
+                <th style={{ textAlign: "left", padding: "10px" }}>Состояние</th>
+                <th style={{ textAlign: "left", padding: "10px" }}>Значение</th>
+                <th style={{ textAlign: "left", padding: "10px" }}>Начало</th>
+                <th style={{ textAlign: "left", padding: "10px" }}>Действие</th>
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
-                <AlarmRow
-                  key={item.tagId}
-                  record={item}
-                  onAcknowledge={(tagId) => {
-                    void acknowledge(tagId);
-                  }}
-                />
-              ))}
+              {items.map((item) => {
+                const canSelect = isAckable(item);
+
+                return (
+                  <AlarmRow
+                    key={item.tagId}
+                    record={item}
+                    canSelect={canSelect}
+                    selected={selected.has(item.tagId)}
+                    pending={pendingAckTagIds.includes(item.tagId)}
+                    onSelect={onSelectRow}
+                    onAcknowledge={(tagId) => {
+                      void acknowledge(tagId);
+                    }}
+                  />
+                );
+              })}
             </tbody>
           </table>
         </div>
 
         {loading ? (
           <Text size="sm" c="dimmed" p="sm">
-            Loading alarms...
+            Загрузка тревог...
           </Text>
         ) : null}
 
         {!loading && items.length === 0 ? (
           <Text size="sm" c="dimmed" p="sm">
-            No alarms found for selected filters.
+            Тревоги по выбранным фильтрам не найдены.
           </Text>
         ) : null}
 
@@ -218,7 +366,7 @@ export const AlarmsPage = () => {
 
       <Group justify="space-between" align="center">
         <Text size="sm" c="dimmed">
-          Total: {total}
+          Всего: {total}
         </Text>
 
         <Group gap="xs">
@@ -229,10 +377,10 @@ export const AlarmsPage = () => {
               void load({ offset: Math.max(0, query.offset - query.limit) });
             }}
           >
-            Prev
+            Назад
           </Button>
           <Text size="sm" c="dimmed">
-            Page {currentPage} / {totalPages}
+            Страница {currentPage} / {totalPages}
           </Text>
           <Button
             variant="ghost"
@@ -241,11 +389,18 @@ export const AlarmsPage = () => {
               void load({ offset: query.offset + query.limit });
             }}
           >
-            Next
+            Вперёд
           </Button>
         </Group>
       </Group>
+
+      <AlarmsBulkAckModal
+        opened={bulkModalOpen}
+        items={selectedItems}
+        loading={bulkSubmitting}
+        onClose={() => setBulkModalOpen(false)}
+        onSubmit={onBulkSubmit}
+      />
     </Stack>
   );
 };
-

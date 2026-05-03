@@ -1,5 +1,6 @@
-export * from "./AppShell";
+﻿export * from "./AppShell";
 export * from "./Badge";
+export * from "./Burger";
 export * from "./Button";
 export * from "./Card";
 export * from "./Divider";
@@ -15,6 +16,7 @@ export * from "./Skeleton";
 export * from "./Stack";
 export * from "./Tabs";
 export * from "./Text";
+export * from "./Textarea";
 export * from "./TextInput";
 export * from "./Title";
 export * from "./Tooltip";

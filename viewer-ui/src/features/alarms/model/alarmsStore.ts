@@ -3,16 +3,19 @@ import { create } from "zustand";
 
 import {
   acknowledgeAlarm,
+  bulkAcknowledge,
   fetchAlarms,
   type AlarmAck,
   type AlarmListResponse,
   type AlarmRecord,
-  type AlarmsListParams
+  type AlarmsListParams,
+  type BulkAckResponse
 } from "@/features/alarms/model/alarmsApi";
 import { ApiRequestError } from "@/shared/api";
 import { realtimeClient } from "@/shared/modules/realtime";
 import type {
   AlarmMessage,
+  AlarmsBatchMessage,
   AlarmRecordPayload,
   AlarmsSnapshotMessage
 } from "@/shared/modules/realtime/types";
@@ -32,6 +35,7 @@ const ALARMS_TOPIC = "alarms";
 let realtimeRefCount = 0;
 let realtimeUnsubscribeSnapshot: (() => void) | null = null;
 let realtimeUnsubscribeAlarm: (() => void) | null = null;
+let realtimeUnsubscribeAlarmBatch: (() => void) | null = null;
 let refreshTimerId: number | null = null;
 
 const toAlarmRecord = (item: AlarmRecordPayload): AlarmRecord => {
@@ -76,8 +80,28 @@ const upsertAlarmRecord = (items: AlarmRecord[], nextRecord: AlarmRecord): Alarm
 };
 
 const updateByEvent = (items: AlarmRecord[], event: AlarmMessage): AlarmRecord[] => {
-  if (event.event_type === "cleared" || event.event_type === "acked") {
+  if (event.event_type === "cleared") {
     return items.filter((item) => item.tagId !== event.tag_id);
+  }
+
+  if (event.event_type === "acked") {
+    return items.map((item) => {
+      if (item.tagId !== event.tag_id) {
+        return item;
+      }
+
+      const ack: AlarmAck = {
+        actorId: event.actor_id || "unknown",
+        ackedAt: event.ts,
+        note: event.note
+      };
+
+      return {
+        ...item,
+        acked: true,
+        ack
+      };
+    });
   }
 
   const existing = items.find((item) => item.tagId === event.tag_id);
@@ -86,7 +110,7 @@ const updateByEvent = (items: AlarmRecord[], event: AlarmMessage): AlarmRecord[]
     tagName: existing?.tagName || event.tag_id,
     deviceId: existing?.deviceId || "",
     deviceName: existing?.deviceName || "",
-    objectId: existing?.objectId || "",
+    objectId: existing?.objectId || event.object_id || "",
     objectName: existing?.objectName || "",
     state: event.state_to,
     value: event.value,
@@ -127,6 +151,10 @@ const startRealtimeInternal = () => {
   realtimeUnsubscribeAlarm = realtimeClient.on("alarm", (message) => {
     useAlarmsStore.getState().applyEvent(message);
   });
+
+  realtimeUnsubscribeAlarmBatch = realtimeClient.on("alarms_batch", (message) => {
+    useAlarmsStore.getState().applyBatch(message);
+  });
 };
 
 const stopRealtimeInternal = () => {
@@ -147,6 +175,9 @@ const stopRealtimeInternal = () => {
 
   realtimeUnsubscribeAlarm?.();
   realtimeUnsubscribeAlarm = null;
+
+  realtimeUnsubscribeAlarmBatch?.();
+  realtimeUnsubscribeAlarmBatch = null;
 };
 
 interface AlarmsState {
@@ -156,12 +187,15 @@ interface AlarmsState {
   loading: boolean;
   error: string;
   activeUnacked: AlarmRecord[];
+  pendingAckTagIds: string[];
 
   load: (queryPatch?: Partial<AlarmsListParams>) => Promise<void>;
   refresh: () => Promise<void>;
   acknowledge: (tagId: string, note?: string) => Promise<void>;
+  acknowledgeBulk: (tagIds: string[], note: string | null) => Promise<BulkAckResponse>;
   applySnapshot: (message: AlarmsSnapshotMessage) => void;
   applyEvent: (message: AlarmMessage) => void;
+  applyBatch: (message: AlarmsBatchMessage) => void;
   startRealtime: () => void;
   stopRealtime: () => void;
 }
@@ -179,6 +213,23 @@ const applyListResult = (
   };
 };
 
+const withUniqueTagIds = (tagIds: string[]): string[] => {
+  const result: string[] = [];
+  const seen = new Set<string>();
+
+  tagIds.forEach((tagId) => {
+    const normalized = tagId.trim();
+    if (!normalized || seen.has(normalized)) {
+      return;
+    }
+
+    seen.add(normalized);
+    result.push(normalized);
+  });
+
+  return result;
+};
+
 export const useAlarmsStore = create<AlarmsState>((set, get) => ({
   query: defaultQuery,
   items: [],
@@ -186,6 +237,7 @@ export const useAlarmsStore = create<AlarmsState>((set, get) => ({
   loading: false,
   error: "",
   activeUnacked: [],
+  pendingAckTagIds: [],
 
   load: async (queryPatch = {}) => {
     const mergedQuery: AlarmsListParams = {
@@ -230,30 +282,33 @@ export const useAlarmsStore = create<AlarmsState>((set, get) => ({
       note: note ?? null
     };
 
-    const optimisticItems =
-      state.query.status === "active"
-        ? previousItems.filter((item) => item.tagId !== tagId)
-        : previousItems.map((item) => {
-            if (item.tagId !== tagId) {
-              return item;
-            }
+    const optimisticItems = previousItems.map((item) => {
+      if (item.tagId !== tagId) {
+        return item;
+      }
 
-            return {
-              ...item,
-              acked: true,
-              ack: optimisticAck
-            };
-          });
+      return {
+        ...item,
+        acked: true,
+        ack: optimisticAck
+      };
+    });
 
     set({
       items: optimisticItems,
+      pendingAckTagIds: Array.from(new Set([...state.pendingAckTagIds, tagId])),
       activeUnacked: previousActive.filter((item) => item.tagId !== tagId)
     });
 
     try {
       const acknowledged = await acknowledgeAlarm(tagId, { note: note ?? null });
 
-      if (state.query.status !== "active") {
+      if (state.query.status === "active") {
+        set((current) => ({
+          items: current.items.filter((item) => item.tagId !== tagId),
+          pendingAckTagIds: current.pendingAckTagIds.filter((id) => id !== tagId)
+        }));
+      } else {
         set((current) => ({
           items: current.items.map((item) => {
             if (item.tagId !== tagId) {
@@ -265,13 +320,15 @@ export const useAlarmsStore = create<AlarmsState>((set, get) => ({
               acked: acknowledged.acked,
               ack: acknowledged.ack
             };
-          })
+          }),
+          pendingAckTagIds: current.pendingAckTagIds.filter((id) => id !== tagId)
         }));
       }
     } catch (error) {
       set({
         items: previousItems,
-        activeUnacked: previousActive
+        activeUnacked: previousActive,
+        pendingAckTagIds: state.pendingAckTagIds
       });
 
       notifications.show({
@@ -279,6 +336,100 @@ export const useAlarmsStore = create<AlarmsState>((set, get) => ({
         title: "Квитирование не выполнено",
         message: resolveErrorMessage(error)
       });
+    }
+  },
+
+  acknowledgeBulk: async (tagIds, note) => {
+    const normalizedTagIds = withUniqueTagIds(tagIds);
+    const state = get();
+    const previousItems = state.items;
+    const previousActive = state.activeUnacked;
+
+    const nowIso = new Date().toISOString();
+    const optimisticAck: AlarmAck = {
+      actorId: "you",
+      ackedAt: nowIso,
+      note: note ?? null
+    };
+
+    const selectedSet = new Set(normalizedTagIds);
+
+    const optimisticItems = previousItems.map((item) => {
+      if (!selectedSet.has(item.tagId)) {
+        return item;
+      }
+
+      return {
+        ...item,
+        acked: true,
+        ack: optimisticAck
+      };
+    });
+
+    set({
+      items: optimisticItems,
+      pendingAckTagIds: Array.from(new Set([...state.pendingAckTagIds, ...normalizedTagIds])),
+      activeUnacked: previousActive.filter((item) => !selectedSet.has(item.tagId))
+    });
+
+    try {
+      const response = await bulkAcknowledge(normalizedTagIds, note);
+      const failedTagIDs = new Set(
+        response.items
+          .filter((item) => item.status !== "acked")
+          .map((item) => item.tagId)
+      );
+      const ackedTagIDs = new Set(
+        response.items
+          .filter((item) => item.status === "acked")
+          .map((item) => item.tagId)
+      );
+
+      set((current) => {
+        const previousByTagID = new Map(previousItems.map((item) => [item.tagId, item]));
+
+        let nextItems = current.items;
+        if (current.query.status === "active") {
+          nextItems = current.items.filter((item) => !ackedTagIDs.has(item.tagId));
+        }
+
+        nextItems = nextItems.map((item) => {
+          if (failedTagIDs.has(item.tagId)) {
+            return previousByTagID.get(item.tagId) || item;
+          }
+
+          return item;
+        });
+
+        failedTagIDs.forEach((failedTagID) => {
+          const exists = nextItems.some((item) => item.tagId === failedTagID);
+          if (exists) {
+            return;
+          }
+
+          const previous = previousByTagID.get(failedTagID);
+          if (previous) {
+            nextItems = [previous, ...nextItems];
+          }
+        });
+
+        return {
+          items: nextItems,
+          pendingAckTagIds: current.pendingAckTagIds.filter(
+            (tagID) => !selectedSet.has(tagID)
+          ),
+          activeUnacked: previousActive.filter((item) => !ackedTagIDs.has(item.tagId))
+        };
+      });
+
+      return response;
+    } catch (error) {
+      set({
+        items: previousItems,
+        activeUnacked: previousActive,
+        pendingAckTagIds: state.pendingAckTagIds
+      });
+      throw error;
     }
   },
 
@@ -315,6 +466,40 @@ export const useAlarmsStore = create<AlarmsState>((set, get) => ({
         activeUnacked: nextActive,
         items: nextItems,
         total: nextTotal
+      };
+    });
+
+    if (get().query.status === "active") {
+      scheduleActiveRefresh();
+    }
+  },
+
+  applyBatch: (message) => {
+    set((state) => {
+      let nextActive = state.activeUnacked;
+      let nextItems = state.items;
+
+      message.events.forEach((event) => {
+        nextActive = updateByEvent(nextActive, {
+          ...event,
+          t: "alarm"
+        });
+
+        if (state.query.status === "active" && state.query.offset === 0) {
+          nextItems = updateByEvent(nextItems, {
+            ...event,
+            t: "alarm"
+          });
+        }
+      });
+
+      return {
+        activeUnacked: nextActive,
+        items: nextItems,
+        total:
+          state.query.status === "active" && state.query.offset === 0
+            ? nextItems.length
+            : state.total
       };
     });
 

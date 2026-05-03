@@ -1,6 +1,8 @@
 export const APP_PATHS = {
   LOGIN: "/login",
   DASHBOARD: "/",
+  DASHBOARD_ALIAS: "/dashboard",
+  DIAGRAM_BY_ID: (diagramId: string) => `/diagrams/${diagramId}`,
   DIAGRAM: (objectId: string, diagramId: string) =>
     `/objects/${objectId}/diagrams/${diagramId}`,
   ALARMS: "/alarms",

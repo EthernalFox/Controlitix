@@ -54,6 +54,7 @@ class RealtimeClientImpl implements RealtimeClient {
     "config.changed": new Set(),
     topics_changed: new Set(),
     alarm: new Set(),
+    alarms_batch: new Set(),
     alarms_snapshot: new Set()
   };
 
@@ -283,6 +284,7 @@ class RealtimeClientImpl implements RealtimeClient {
         return;
       }
       case "alarm":
+      case "alarms_batch":
       case "alarms_snapshot": {
         this.emit(message.t, message);
         return;

@@ -3,6 +3,10 @@ import { Badge, Button, Group, Text } from "@/shared/ui/components";
 
 interface AlarmRowProps {
   record: AlarmRecord;
+  canSelect: boolean;
+  selected: boolean;
+  pending: boolean;
+  onSelect: (tagId: string, checked: boolean) => void;
   onAcknowledge: (tagId: string) => void;
 }
 
@@ -36,11 +40,28 @@ const formatDate = (value: string): string => {
   return new Date(timestamp).toLocaleString();
 };
 
-export const AlarmRow = ({ record, onAcknowledge }: AlarmRowProps) => {
+export const AlarmRow = ({
+  record,
+  canSelect,
+  selected,
+  pending,
+  onSelect,
+  onAcknowledge
+}: AlarmRowProps) => {
   const shouldBlink = !record.acked && (record.state === "hi" || record.state === "hihi");
 
   return (
-    <tr>
+    <tr style={{ opacity: pending ? 0.55 : 1 }}>
+      <td style={{ padding: "8px", borderBottom: "1px solid var(--mantine-color-dark-4)", width: 44 }}>
+        {canSelect ? (
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={(event) => onSelect(record.tagId, event.currentTarget.checked)}
+            aria-label={`Выбрать ${record.tagName || record.tagId}`}
+          />
+        ) : null}
+      </td>
       <td style={{ padding: "8px", borderBottom: "1px solid var(--mantine-color-dark-4)" }}>
         <Group gap={6} wrap="nowrap">
           <span
@@ -73,7 +94,7 @@ export const AlarmRow = ({ record, onAcknowledge }: AlarmRowProps) => {
           <Badge color="alarm-ack">ACK</Badge>
         ) : (
           <Button size="xs" variant="ghost" onClick={() => onAcknowledge(record.tagId)}>
-            Acknowledge
+            Квитировать
           </Button>
         )}
       </td>

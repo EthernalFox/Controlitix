@@ -1,0 +1,20 @@
+﻿.page {
+  padding: 24px;
+}
+
+.stateCard {
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.realtimeWarning {
+  border-color: var(--mantine-color-alarm-warn-4);
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 16px;
+  }
+}

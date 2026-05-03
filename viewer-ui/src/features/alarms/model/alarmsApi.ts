@@ -37,9 +37,10 @@ export interface AlarmRecord {
 }
 
 export interface AlarmEvent {
-  id: string;
+  id?: string;
   eventType: "raised" | "cleared" | "acked" | "suppressed" | "unsuppressed";
   tagId: string;
+  objectId?: string | null;
   stateFrom: AlarmState;
   stateTo: AlarmState;
   value: number | null;
@@ -75,6 +76,20 @@ export interface AcknowledgeAlarmPayload {
   note?: string | null;
 }
 
+export interface BulkAckItemResult {
+  tagId: string;
+  status: "acked" | "not_active" | "not_found" | "already_acked";
+  state?: AlarmState;
+}
+
+export interface BulkAckResponse {
+  items: BulkAckItemResult[];
+  ackedAt: string;
+  actorId: string;
+  successN: number;
+  failedN: number;
+}
+
 const toParams = (params: AlarmsListParams): Record<string, string | number> => {
   return {
     status: params.status,
@@ -100,4 +115,14 @@ export const acknowledgeAlarm = async (
   payload: AcknowledgeAlarmPayload
 ): Promise<AlarmRecord> => {
   return api.post<AlarmRecord>(`/alarms/${tagId}/acknowledge`, payload);
+};
+
+export const bulkAcknowledge = async (
+  tagIds: string[],
+  note: string | null
+): Promise<BulkAckResponse> => {
+  return api.post<BulkAckResponse>("/alarms/acknowledge", {
+    items: tagIds.map((tagId) => ({ tag_id: tagId })),
+    note
+  });
 };

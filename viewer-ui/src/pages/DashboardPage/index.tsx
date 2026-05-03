@@ -1,144 +1,144 @@
-﻿import { notifications } from "@mantine/notifications";
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router";
+﻿import { useEffect } from "react";
+import { useNavigate } from "react-router";
 
-import { fetchObjects, useDiagramStore } from "@/features/diagram";
-import { APP_PATHS } from "@/shared/libs/router";
-import { useTopicSubscription } from "@/shared/modules/realtime";
+import { useAuthStore } from "@/features/auth";
+import {
+  getObjectAlarmCounts,
+  useObjectsSummaryStore
+} from "@/features/objects-summary";
+import {
+  realtimeClient,
+  useRealtimeStore,
+  useTopicSubscription
+} from "@/shared/modules/realtime";
+import type { AlarmMessage } from "@/shared/modules/realtime/types";
 import { Button, Card, Group, Stack, Text, Title } from "@/shared/ui/components";
+import { ObjectGrid, ObjectGridSkeleton } from "@/widgets/ObjectGrid/ObjectGrid";
 
-const OBJECT_LIMIT_NOTIFICATION_ID = "dashboard-object-limit";
+import styles from "./DashboardPage.module.css";
+
+const mapAlarmMessage = (message: Omit<AlarmMessage, "t">) => {
+  return {
+    eventType: message.event_type,
+    tagId: message.tag_id,
+    stateFrom: message.state_from,
+    stateTo: message.state_to,
+    value: message.value,
+    quality: message.quality,
+    ts: message.ts,
+    actorId: message.actor_id,
+    note: message.note,
+    objectId: message.object_id ?? null
+  };
+};
 
 export const DashboardPage = () => {
-  const objects = useDiagramStore((state) => state.objects);
-  const setObjects = useDiagramStore((state) => state.setObjects);
+  const navigate = useNavigate();
+  const status = useObjectsSummaryStore((state) => state.status);
+  const objects = useObjectsSummaryStore((state) => state.objects);
+  const alarmCounts = useObjectsSummaryStore((state) => state.alarmCounts);
+  const error = useObjectsSummaryStore((state) => state.lastError);
+  const load = useObjectsSummaryStore((state) => state.load);
+  const refresh = useObjectsSummaryStore((state) => state.refresh);
+  const applyAlarmEvent = useObjectsSummaryStore((state) => state.applyAlarmEvent);
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [expandedObjectIDs, setExpandedObjectIDs] = useState<string[]>([]);
+  const realtimeStatus = useRealtimeStore((state) => state.status);
+  const user = useAuthStore((state) => state.user);
+
+  useTopicSubscription(["alarms"], () => {
+    // Subscription is required to receive alarm topic frames.
+  });
 
   useEffect(() => {
-    if (objects.length > 0 || isLoading) {
+    const unsubAlarm = realtimeClient.on("alarm", (message) => {
+      applyAlarmEvent(mapAlarmMessage(message));
+    });
+
+    const unsubBatch = realtimeClient.on("alarms_batch", (message) => {
+      message.events.forEach((event) => {
+        applyAlarmEvent(mapAlarmMessage(event));
+      });
+    });
+
+    return () => {
+      unsubAlarm();
+      unsubBatch();
+    };
+  }, [applyAlarmEvent]);
+
+  useEffect(() => {
+    if (status === "idle") {
+      void load();
+    }
+  }, [load, status]);
+
+  const openPath = (path: string) => {
+    void navigate(path);
+  };
+
+  const goToEditor = () => {
+    const editorUrl = (import.meta.env.VITE_EDITOR_UI_URL ?? "").trim();
+    if (!editorUrl) {
       return;
     }
 
-    let isCancelled = false;
-    setIsLoading(true);
-
-    void fetchObjects(100, 0)
-      .then((response) => {
-        if (isCancelled) {
-          return;
-        }
-
-        setObjects(response.items);
-      })
-      .catch((error: unknown) => {
-        console.warn("[dashboard] failed to load objects", error);
-      })
-      .finally(() => {
-        if (isCancelled) {
-          return;
-        }
-
-        setIsLoading(false);
-      });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [isLoading, objects.length, setObjects]);
-
-  const expandedTopics = useMemo(() => {
-    return expandedObjectIDs.map((objectID) => `object:${objectID}`);
-  }, [expandedObjectIDs]);
-
-  useTopicSubscription(
-    expandedTopics,
-    () => {
-      // Dashboard keeps object-level subscription active for future aggregate widgets.
-    },
-    {
-      onLimitExceeded: () => {
-        notifications.show({
-          id: OBJECT_LIMIT_NOTIFICATION_ID,
-          title: "Ограничение подписки",
-          message: "Слишком крупный объект, отображаются не все теги",
-          color: "alarm-warn",
-          autoClose: 10000
-        });
-      }
-    }
-  );
-
-  const toggleExpanded = (objectID: string) => {
-    setExpandedObjectIDs((current) => {
-      if (current.includes(objectID)) {
-        return current.filter((id) => id !== objectID);
-      }
-
-      return [...current, objectID];
-    });
+    window.location.assign(editorUrl);
   };
 
   return (
-    <Stack gap="md">
-      <Title order={2}>Объекты</Title>
+    <Stack gap="md" className={styles.page}>
+      <Group justify="space-between" align="center">
+        <Title order={2}>Объекты</Title>
+        <Button variant="ghost" onClick={() => void refresh()}>
+          Обновить
+        </Button>
+      </Group>
 
-      {isLoading ? <Text c="dimmed">Загрузка...</Text> : null}
-
-      {!isLoading && objects.length === 0 ? (
-        <Text c="dimmed">Нет объектов с опубликованными мнемосхемами</Text>
+      {realtimeStatus === "closed" ? (
+        <Card withBorder p="sm" className={styles.realtimeWarning}>
+          <Group justify="space-between" align="center">
+            <Text size="sm">Realtime недоступен. Данные могут устаревать</Text>
+            <Button size="xs" variant="secondary" onClick={() => void refresh()}>
+              Обновить
+            </Button>
+          </Group>
+        </Card>
       ) : null}
 
-      <Group align="stretch" gap="sm" wrap="wrap">
-        {objects.map((objectItem) => {
-          const firstDiagramId = objectItem.firstPublishedDiagramId;
-          const canOpen = firstDiagramId.trim().length > 0;
-          const diagramPath = canOpen
-            ? APP_PATHS.DIAGRAM(objectItem.id, firstDiagramId)
-            : APP_PATHS.DASHBOARD;
-          const isExpanded = expandedObjectIDs.includes(objectItem.id);
+      {status === "loading" ? <ObjectGridSkeleton /> : null}
 
-          return (
-            <Card key={objectItem.id} withBorder p="md" style={{ flex: "1 1 280px" }}>
-              <Stack gap="xs" h="100%" justify="space-between">
-                <Stack gap={2}>
-                  <Title order={4}>{objectItem.name}</Title>
-                  <Text size="sm" c="dimmed">
-                    {objectItem.description || "Без описания"}
-                  </Text>
-                  <Text size="xs" c="dimmed">
-                    Опубликованных мнемосхем: {objectItem.publishedDiagramCount}
-                  </Text>
-                  {isExpanded ? (
-                    <Text size="xs" c="dimmed">
-                      Подписка на object:{objectItem.id} активна
-                    </Text>
-                  ) : null}
-                </Stack>
+      {status === "error" ? (
+        <Card withBorder p="lg" className={styles.stateCard}>
+          <Stack align="center" gap="sm">
+            <Text>{error || "Не удалось загрузить данные"}</Text>
+            <Button variant="secondary" onClick={() => void refresh()}>
+              Повторить
+            </Button>
+          </Stack>
+        </Card>
+      ) : null}
 
-                <Stack gap="xs">
-                  {canOpen ? (
-                    <Link to={diagramPath} style={{ textDecoration: "none" }}>
-                      <Button variant="secondary" fullWidth>
-                        Открыть первую схему
-                      </Button>
-                    </Link>
-                  ) : (
-                    <Button variant="secondary" fullWidth disabled>
-                      Нет схем
-                    </Button>
-                  )}
+      {status === "ready" && objects.length === 0 ? (
+        <Card withBorder p="lg" className={styles.stateCard}>
+          <Stack align="center" gap="sm">
+            <Text size="xl">📭</Text>
+            <Text>Нет объектов</Text>
+            {user?.roles?.includes("admin") ? (
+              <Button variant="secondary" onClick={goToEditor}>
+                Перейти в editor-ui
+              </Button>
+            ) : null}
+          </Stack>
+        </Card>
+      ) : null}
 
-                  <Button variant="secondary" fullWidth onClick={() => toggleExpanded(objectItem.id)}>
-                    {isExpanded ? "Свернуть" : "Раскрыть"}
-                  </Button>
-                </Stack>
-              </Stack>
-            </Card>
-          );
-        })}
-      </Group>
+      {status === "ready" && objects.length > 0 ? (
+        <ObjectGrid
+          objects={objects}
+          getCounts={(objectId) => getObjectAlarmCounts(alarmCounts, objectId)}
+          onOpen={openPath}
+        />
+      ) : null}
     </Stack>
   );
 };

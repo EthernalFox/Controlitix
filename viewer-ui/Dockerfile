@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -7,8 +7,10 @@ RUN npm ci
 
 COPY . .
 
-ARG VITE_API_URL=/api
+ARG VITE_API_URL=/api/viewer
+ARG VITE_WS_URL=/api/viewer/ws
 ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_WS_URL=${VITE_WS_URL}
 
 RUN npm run build
 

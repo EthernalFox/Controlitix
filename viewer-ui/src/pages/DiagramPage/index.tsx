@@ -1,4 +1,3 @@
-﻿import { notifications } from "@mantine/notifications";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
 
@@ -16,7 +15,7 @@ import {
   type ConfigChangedMessage,
   type RealtimeTagValue
 } from "@/shared/modules/realtime";
-import { Button, Card, Group, Loader, Stack, Text } from "@/shared/ui/components";
+import { Button, Card, Group, Loader, Stack, Text, notify } from "@/shared/ui/components";
 
 import { DiagramCanvas } from "./DiagramCanvas";
 import { DiagramHeader } from "./DiagramHeader";
@@ -165,7 +164,7 @@ export const DiagramPage = () => {
     void loadDiagram(false);
 
     return () => {
-      notifications.hide(DIAGRAM_CONFIG_NOTIFICATION_ID);
+      notify.hide(DIAGRAM_CONFIG_NOTIFICATION_ID);
       notificationVisibleRef.current = false;
       resetDiagramState();
     };
@@ -217,7 +216,7 @@ export const DiagramPage = () => {
     notificationVisibleRef.current = true;
     notificationAutoRefreshRef.current = true;
 
-    notifications.show({
+    notify.show({
       id: DIAGRAM_CONFIG_NOTIFICATION_ID,
       title: "Мнемосхема обновлена",
       message: (
@@ -228,7 +227,7 @@ export const DiagramPage = () => {
             variant="secondary"
             onClick={() => {
               notificationAutoRefreshRef.current = false;
-              notifications.hide(DIAGRAM_CONFIG_NOTIFICATION_ID);
+              notify.hide(DIAGRAM_CONFIG_NOTIFICATION_ID);
               void loadDiagram(true);
             }}
           >

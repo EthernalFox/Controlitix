@@ -1,0 +1,10 @@
+﻿.tagsList {
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--mantine-color-gray-4);
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

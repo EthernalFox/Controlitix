@@ -1,4 +1,5 @@
 ﻿export { api } from "./client";
+export { listObjects, type ObjectSummary } from "./objects";
 export {
   clearAccessToken,
   getAccessToken,

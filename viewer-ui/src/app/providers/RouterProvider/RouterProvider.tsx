@@ -1,4 +1,3 @@
-import { AppShell, Burger } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { createElement } from "react";
 import {
@@ -15,7 +14,7 @@ import { DiagramPage } from "@/pages/DiagramPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { TrendsPage } from "@/pages/TrendsPage";
 import { APP_PATHS, ProtectedRoute } from "@/shared/libs/router";
-import { Button, Group, Stack, Text, Title } from "@/shared/ui/components";
+import { AppShell, Burger, Button, Group, Stack, Text, Title } from "@/shared/ui/components";
 import { AppHeader } from "@/widgets/AppHeader";
 import { AppNavbar } from "@/widgets/AppNavbar";
 
@@ -106,6 +105,14 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: createElement(DashboardPage) },
+      {
+        path: APP_PATHS.DASHBOARD_ALIAS,
+        element: createElement(Navigate, { to: APP_PATHS.DASHBOARD, replace: true })
+      },
+      {
+        path: "/diagrams/:diagramId",
+        element: createElement(DiagramPage)
+      },
       {
         path: "/objects/:objectId/diagrams/:diagramId",
         element: createElement(DiagramPage)

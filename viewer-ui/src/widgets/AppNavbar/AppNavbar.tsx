@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+п»їimport { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 import {
@@ -19,13 +19,13 @@ import {
 } from "@/shared/ui/components";
 
 const navItems = [
-  { label: "Дашборд", href: APP_PATHS.DASHBOARD },
-  { label: "Тревоги", href: APP_PATHS.ALARMS },
-  { label: "Тренды", href: APP_PATHS.TRENDS }
+  { label: "РћР±СЉРµРєС‚С‹", href: APP_PATHS.DASHBOARD },
+  { label: "РўСЂРµРІРѕРіРё", href: APP_PATHS.ALARMS },
+  { label: "РўСЂРµРЅРґС‹", href: APP_PATHS.TRENDS }
 ];
 
 const isDashboardRoute = (pathname: string): boolean => {
-  return pathname === APP_PATHS.DASHBOARD;
+  return pathname === APP_PATHS.DASHBOARD || pathname === APP_PATHS.DASHBOARD_ALIAS;
 };
 
 export const AppNavbar = () => {
@@ -97,7 +97,7 @@ export const AppNavbar = () => {
 
   return (
     <Stack h="100%" gap="sm">
-      <Title order={6}>Навигация</Title>
+      <Title order={6}>РќР°РІРёРіР°С†РёСЏ</Title>
       <Stack gap={4}>
         {navItems.map((item) => {
           const isActive =
@@ -120,14 +120,14 @@ export const AppNavbar = () => {
 
       <Divider />
 
-      <Title order={6}>Объекты</Title>
+      <Title order={6}>РћР±СЉРµРєС‚С‹</Title>
       <ScrollArea style={{ flex: 1 }}>
         <Stack gap={6}>
-          {objectsLoading ? <Text c="dimmed">Загрузка...</Text> : null}
+          {objectsLoading ? <Text c="dimmed">Р—Р°РіСЂСѓР·РєР°...</Text> : null}
 
           {!objectsLoading && objects.length === 0 ? (
             <Text size="sm" c="dimmed">
-              Нет опубликованных мнемосхем
+              РќРµС‚ РѕРїСѓР±Р»РёРєРѕРІР°РЅРЅС‹С… РјРЅРµРјРѕСЃС…РµРј
             </Text>
           ) : null}
 
@@ -148,17 +148,17 @@ export const AppNavbar = () => {
                       size="compact-xs"
                       onClick={() => handleObjectToggle(objectItem.id)}
                     >
-                      {isExpanded ? "Скрыть" : "Показать"}
+                      {isExpanded ? "РЎРєСЂС‹С‚СЊ" : "РџРѕРєР°Р·Р°С‚СЊ"}
                     </Button>
                   </Group>
 
                   {isExpanded ? (
                     <Stack gap={4}>
-                      {isObjectLoading ? <Text size="xs">Загрузка...</Text> : null}
+                      {isObjectLoading ? <Text size="xs">Р—Р°РіСЂСѓР·РєР°...</Text> : null}
 
                       {!isObjectLoading && diagrams.length === 0 ? (
                         <Text size="xs" c="dimmed">
-                          Нет опубликованных мнемосхем
+                          РќРµС‚ РѕРїСѓР±Р»РёРєРѕРІР°РЅРЅС‹С… РјРЅРµРјРѕСЃС…РµРј
                         </Text>
                       ) : null}
 
